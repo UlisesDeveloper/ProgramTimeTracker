@@ -4,15 +4,42 @@
 Process::Process(string fileName) { //filename will be the process
 
 	ifstream file(fileName);
+	logFileName = fileName;
 
 
 	if (file.is_open()) {
 		string currentLine = "";
-		while (getline(file, currentLine)) {
-			if (currentLine == "- LOGS:") {
+		
 
-			}
+		//this should be replaced to something that gets the last line and is saved in currentLine
+		while (getline(file, currentLine)) {
 		}
+
+
+
+
+		int posFirstColon = currentLine.find(':');
+		int posSecondColon = currentLine.find(':', posFirstColon + 1);
+		string date = currentLine.substr(0, posFirstColon);
+		//find gives first pos
+		int posFirstSlash = date.find('/');
+		int posSecondSlash = date.find('/', posFirstSlash + 1);
+		if ((stoi(date.substr(0, posFirstSlash)) != currDay())
+			|| (stoi(date.substr(posFirstSlash + 1, posSecondSlash - posFirstSlash - 1)) != currMonth()) 
+			|| (stoi(date.substr(posSecondSlash + 1)) != currYear())
+		) {
+			appendCurrentDateToFile(fileName);
+		} else { //current day is in file
+				
+			todayTime = stoi(string(currentLine.substr(posFirstColon + 1, posSecondColon - posFirstColon - 1)));
+			backgroundTodayTime = stoi(string(currentLine.substr(posSecondColon + 1)));
+		}
+		
+		
+
+
+
+
 
 		file.close();
 	}
@@ -23,21 +50,25 @@ Process::Process(string fileName) { //filename will be the process
 }
 
 
+
+
 //better idea the logs save each day with its day data and that can be consulted later from the file itself
 //so the file has each day saved,
 
 //each get should probably calculate it but unsure still
 
-uint64_t Process::getTotalTime() const {
+/*uint64_t Process::getTotalTime() const {
 	return totalTime;
 }
+*/
 uint64_t Process::getSessionTime() const {
 	return sessionTime;
 }
 uint64_t Process::getTodayTime() const {
 	return todayTime;
 }
-uint64_t Process::getWeeklyTime() const {
+
+/*uint64_t Process::getWeeklyTime() const {
 	return weeklyTime;
 }
 const uint64_t* Process::getMonthlyTimeArray() const {
@@ -50,23 +81,12 @@ const uint64_t* Process::getYearlyTimeArray(int length) const {
 
 	return res;
 }
+*/
 
 void Process::ResetTime() {
-	//first delete time content from the fila
-
-
-	//reset all time so that tracking now is done correctly
-	totalTime = sessionTime = todayTime = weeklyTime = 0;
-	
-	for (int i = 0; i < lengthYearlyArray; i++) {
-		delete yearlyArray[i];
-	}
-	delete yearlyArray;
-
-
-
 	//probably better to just delete the entire file so that it's "restarted"
-	
+	deleteFile(logFileName);
+	fileCreator(logFileName);
 }
 
 
@@ -78,23 +98,27 @@ void Process::ResetTime() {
 
 //will have logs as the starter
 //and then each day it's logged in 
-void fileCreator(string fileName){
+void Process::fileCreator(string fileName) const{
 	//string fileName = processName + "__" + to_string(PID) + ".pttl";
-	ofstream file(fileName);
+	ofstream file(fileName); //doesn't need appendmode 
 
 
 	file << "- PID:" << endl << PID << endl << "- PROGRAM NAME:" << endl << processName << endl << "- LOGS:" << endl;
-
-
-
+	appendCurrentDateToFile(fileName);
+	
 	file.close();
 
 }
 
 
-void deleteFile(string fileName) {
-
+void Process::deleteFile(string fileName) { //so that it's safe it deletes the file but also resets all values so that it's initialized properly
+	remove(fileName.c_str());
+	resetInitial();
 }
+
+void Process::resetInitial() {
+	sessionTime = todayTime = backgroundTodayTime = 0;
+};
 
 
 int yearFrom2026() {
@@ -133,4 +157,11 @@ int currYear() {
 
 	int currYear = (*local).tm_year + 1900;
 	return currYear;
+}
+
+
+void appendCurrentDateToFile(string fileName) {
+	ofstream file(fileName, std::ios::app); //append mode 
+	file << currDay() << '/' << currMonth() << '/' << currYear() << ':' << todayTime << ':' << backgroundTodayTime;
+	file.close();
 }

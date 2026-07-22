@@ -9,6 +9,7 @@
 #include "AllProcesses.h"
 #include <stdexcept>
 #include <ios>
+#include <cstdio>
 
 
 
@@ -19,29 +20,36 @@ using namespace std;
 class Process{
 
 private:
-	uint64_t totalTime = 0;
-	uint64_t sessionTime = 0; //by sessionTime i mean time the program has been on / pc has been on
-	uint64_t todayTime = 0;
-	uint64_t weeklyTime = 0;
+	//uint64_t totalTime = 0;
+	uint64_t sessionTime = 0; //by sessionTime i mean time the program has been opened
+	uint64_t todayTime = 0; //active time 
+	uint64_t backgroundTodayTime = 0; //time where the mouse hasn't been centered on it, basically for multimonitor kinds of workloads
+	
+	/*uint64_t weeklyTime = 0;
 	uint64_t* monthlyTimeArray = new uint64_t[12];
 	uint64_t** yearlyArray = nullptr; // have it with each year from 2026 onwards 
-	unsigned short lengthYearlyArray = 0;
+	unsigned short lengthYearlyArray = 1;
+	*/ 
 
+	//probably should be calculated by consulting the file when needed
 
 	DWORD PID;
 	string processName;
+	string logFileName;
 
 	//the process must not add time itself it must be done from allprocesses which knows if it's active
 
 public:
 	
+
 	Process(string fileName); //loads file data
 
 
-	//need to create the copy constructor
-	Process(Process& a);
+	//no need to create the copy constructor no dynamic memory
 
-	~Process();
+
+	//~Process();
+	//no dynamic memory so far at least here
 
 	uint64_t getTotalTime() const;
 	uint64_t getSessionTime() const;
@@ -55,16 +63,20 @@ public:
 
 	void fileCreator(string fileName) const;
 
-	void deleteFile(string fileName) const;
+	void deleteFile(string fileName) ;
+
+	void resetInitial();
 
 
 	
 	friend class AllProcesses;
-	friend iostream saveToFile(iostream exit, const Process& a);
+	friend void appendCurrentDateToFile(string fileName);
 
 };
 
 
+
+//don't know what use i could give them right now
 ostream& operator>>(iostream exit, const Process& a);
 istream& operator<<(iostream entry, Process&a);
 
@@ -76,3 +88,5 @@ int currDay();
 int currMonth();
 
 int currYear();
+
+void appendCurrentDateToFile(string fileName);
