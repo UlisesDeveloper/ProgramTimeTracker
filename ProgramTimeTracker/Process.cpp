@@ -1,6 +1,11 @@
 #include "Process.h"
 #include <fstream>
 
+Process::Process() {
+
+}
+
+
 Process::Process(string fileName) { //filename will be the process
 
 	ifstream file(fileName);
@@ -18,12 +23,18 @@ Process::Process(string fileName) { //filename will be the process
 
 
 
-		int posFirstColon = currentLine.find(':');
-		int posSecondColon = currentLine.find(':', posFirstColon + 1);
+		size_t posFirstColon = currentLine.find(':');
+		size_t posSecondColon = currentLine.find(':', posFirstColon + 1);
 		string date = currentLine.substr(0, posFirstColon);
 		//find gives first pos
-		int posFirstSlash = date.find('/');
-		int posSecondSlash = date.find('/', posFirstSlash + 1);
+		size_t posFirstSlash = date.find('/');
+		size_t posSecondSlash = date.find('/', posFirstSlash + 1);
+
+		if (posFirstColon == posSecondColon == posFirstSlash == posSecondSlash == string::npos) {
+			throw invalid_argument("wrong format in process file");
+		}
+
+
 		if ((stoi(date.substr(0, posFirstSlash)) != currDay())
 			|| (stoi(date.substr(posFirstSlash + 1, posSecondSlash - posFirstSlash - 1)) != currMonth()) 
 			|| (stoi(date.substr(posSecondSlash + 1)) != currYear())

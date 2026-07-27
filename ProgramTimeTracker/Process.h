@@ -10,6 +10,7 @@
 #include <stdexcept>
 #include <ios>
 #include <cstdio>
+#include <dwmapi.h>
 
 
 
@@ -41,7 +42,7 @@ private:
 
 public:
 	
-
+	Process(); //default
 	Process(string fileName); //loads file data
 
 
@@ -69,8 +70,9 @@ public:
 
 
 	
-	friend class AllProcesses;
+	
 	friend void appendCurrentDateToFile(string fileName);
+	friend class AllProcesses;
 
 };
 
@@ -90,3 +92,6 @@ int currMonth();
 int currYear();
 
 void appendCurrentDateToFile(string fileName);
+
+BOOL CALLBACK filterNonPrimaryWindows(HWND hwnd, LPARAM lparam);
+
