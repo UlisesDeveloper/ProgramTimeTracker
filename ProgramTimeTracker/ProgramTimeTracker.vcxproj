@@ -140,11 +140,13 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="AllProcesses.cpp" />
+    <ClCompile Include="globals.cpp" />
     <ClCompile Include="Process.cpp" />
     <ClCompile Include="ProgramTimeTracker.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AllProcesses.h" />
+    <ClInclude Include="globals.h" />
     <ClInclude Include="Process.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

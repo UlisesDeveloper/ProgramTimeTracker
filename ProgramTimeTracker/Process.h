@@ -6,7 +6,7 @@
 #include <ctime>
 #include <chrono>
 #include "Windows.h"
-#include "AllProcesses.h"
+class AllProcesses;
 #include <stdexcept>
 #include <ios>
 #include <cstdio>
@@ -43,7 +43,7 @@ private:
 public:
 	
 	Process(); //default
-	Process(string fileName); //loads file data
+	Process(string fileName, DWORD pidDef, string nameOfProcess = ""); //loads file data
 
 
 	//no need to create the copy constructor no dynamic memory
@@ -55,14 +55,19 @@ public:
 	uint64_t getTotalTime() const;
 	uint64_t getSessionTime() const;
 	uint64_t getTodayTime() const;
+	uint64_t getBackgroundTodayTime() const;
 	uint64_t getWeeklyTime() const;
 	const uint64_t* getMonthlyTimeArray() const; //12 always
 	const uint64_t* getYearlyTimeArray( int length) const;
 	//better to create a matrix for each month and do the sum to know the yearlyTimeArray so that getYearlyTimeArray returns an array with only each year's time
 
+	DWORD getPid() const;
+
+
+
 	void ResetTime(); //will reset allTimes, so need to delete everything from the files
 
-	void fileCreator(string fileName) const;
+	void fileCreator(string fileName, DWORD pidDef = -33, string nameOfProcess = "") const;
 
 	void deleteFile(string fileName) ;
 
@@ -71,7 +76,7 @@ public:
 
 	
 	
-	friend void appendCurrentDateToFile(string fileName);
+	
 	friend class AllProcesses;
 
 };
@@ -91,7 +96,6 @@ int currMonth();
 
 int currYear();
 
-void appendCurrentDateToFile(string fileName);
+void appendCurrentDateToFile(string fileName, const Process& a);
 
-BOOL CALLBACK filterNonPrimaryWindows(HWND hwnd, LPARAM lparam);
 

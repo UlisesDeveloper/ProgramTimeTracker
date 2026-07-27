@@ -6,7 +6,8 @@ Process::Process() {
 }
 
 
-Process::Process(string fileName) { //filename will be the process
+
+Process::Process(string fileName, DWORD pidDef, string nameOfProcess) { //horrid idea how does it get the pid has to have the pid name and whatever else
 
 	ifstream file(fileName);
 	logFileName = fileName;
@@ -30,7 +31,8 @@ Process::Process(string fileName) { //filename will be the process
 		size_t posFirstSlash = date.find('/');
 		size_t posSecondSlash = date.find('/', posFirstSlash + 1);
 
-		if (posFirstColon == posSecondColon == posFirstSlash == posSecondSlash == string::npos) {
+		if (posFirstColon == string::npos || posSecondColon == string::npos ||
+			posFirstSlash == string::npos || posSecondSlash == string::npos) {
 			throw invalid_argument("wrong format in process file");
 		}
 
@@ -39,7 +41,7 @@ Process::Process(string fileName) { //filename will be the process
 			|| (stoi(date.substr(posFirstSlash + 1, posSecondSlash - posFirstSlash - 1)) != currMonth()) 
 			|| (stoi(date.substr(posSecondSlash + 1)) != currYear())
 		) {
-			appendCurrentDateToFile(fileName);
+			appendCurrentDateToFile(fileName, *this);
 		} else { //current day is in file
 				
 			todayTime = stoi(string(currentLine.substr(posFirstColon + 1, posSecondColon - posFirstColon - 1)));
@@ -55,7 +57,7 @@ Process::Process(string fileName) { //filename will be the process
 		file.close();
 	}
 	else { //file doesn't exist so no tracking data for it
-		fileCreator(fileName);
+		fileCreator(fileName, pidDef, nameOfProcess);
 	}
 
 }
@@ -78,6 +80,9 @@ uint64_t Process::getSessionTime() const {
 uint64_t Process::getTodayTime() const {
 	return todayTime;
 }
+uint64_t Process::getBackgroundTodayTime() const {
+	return backgroundTodayTime;
+}
 
 /*uint64_t Process::getWeeklyTime() const {
 	return weeklyTime;
@@ -94,6 +99,12 @@ const uint64_t* Process::getYearlyTimeArray(int length) const {
 }
 */
 
+
+DWORD Process::getPid() const {
+	return PID;
+}
+
+
 void Process::ResetTime() {
 	//probably better to just delete the entire file so that it's "restarted"
 	deleteFile(logFileName);
@@ -109,13 +120,23 @@ void Process::ResetTime() {
 
 //will have logs as the starter
 //and then each day it's logged in 
-void Process::fileCreator(string fileName) const{
+void Process::fileCreator(string fileName, DWORD pidDef, string nameOfProcess) const {
 	//string fileName = processName + "__" + to_string(PID) + ".pttl";
 	ofstream file(fileName); //doesn't need appendmode 
 
-
-	file << "- PID:" << endl << PID << endl << "- PROGRAM NAME:" << endl << processName << endl << "- LOGS:" << endl;
-	appendCurrentDateToFile(fileName);
+	if (pidDef == -33 && nameOfProcess == "") {
+		file << "- PID:" << endl << PID << endl << "- PROGRAM NAME:" << endl << processName << endl << "- LOGS:" << endl;
+	}
+	else if (pidDef == -33) {
+		file << "- PID:" << endl << PID << endl << "- PROGRAM NAME:" << endl << nameOfProcess << endl << "- LOGS:" << endl;
+	}
+	else if (nameOfProcess == "") {
+		file << "- PID:" << endl << pidDef << endl << "- PROGRAM NAME:" << endl << processName << endl << "- LOGS:" << endl;
+	}
+	else {
+		file << "- PID:" << endl << pidDef << endl << "- PROGRAM NAME:" << endl << nameOfProcess << endl << "- LOGS:" << endl;
+	}
+	appendCurrentDateToFile(fileName, *this);
 	
 	file.close();
 
@@ -171,8 +192,8 @@ int currYear() {
 }
 
 
-void appendCurrentDateToFile(string fileName) {
+void appendCurrentDateToFile(string fileName, const Process& a) {
 	ofstream file(fileName, std::ios::app); //append mode 
-	file << currDay() << '/' << currMonth() << '/' << currYear() << ':' << todayTime << ':' << backgroundTodayTime;
+	file << currDay() << '/' << currMonth() << '/' << currYear() << ':' << a.getTodayTime() << ':' << a.getBackgroundTodayTime();
 	file.close();
 }

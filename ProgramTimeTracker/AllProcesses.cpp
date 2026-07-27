@@ -1,9 +1,70 @@
 #include "AllProcesses.h"
 #include <iostream>
 #include <dwmapi.h>
-
+#include "globals.h"
+#include <mmdeviceapi.h>
+#include <audiopolicy.h>
+#include <comdef.h>
 
 using namespace std;
+
+
+
+struct pidList {
+    size_t count = 0;
+    size_t capacity = 0;
+    DWORD* pids = nullptr;
+
+    pidList() {
+        count = 0;
+        capacity = 16; //feel like 16 windows isn't a crazy number
+        pids = new DWORD[capacity];
+    }
+
+    pidList(const pidList& a) { //jic
+        //having it initialized by default causes a leak so better to have the def values in the def constructor even tho it makes no sense
+        pids = nullptr;
+        capacity = count = 0;
+        *this = a;
+
+    }
+
+    pidList& operator=(const pidList& a) { //jic
+        if (this != &(a)) {
+            capacity = a.capacity;
+            count = a.count;
+            DWORD* temp = new DWORD[a.capacity];
+            for (int i = 0; i < count; i++) {
+                temp[i] = a.pids[i];
+            }
+            delete[] pids;
+            pids = temp;
+        }
+        return *this;
+    }
+
+    ~pidList() {
+        delete[] pids;
+    }
+
+    void addPid(DWORD pid) {
+        if (count + 1 > capacity) {
+            capacity *= 2;
+            DWORD* temp = new DWORD[capacity];
+            for (int i = 0; i < count; i++) {
+                temp[i] = pids[i];
+            }
+            delete[] pids;
+            pids = temp;
+        }
+
+        pids[count] = pid;
+        count++;
+    }
+};
+
+
+
 
 
 void AllProcesses::getOpenedProcesses() {
@@ -11,7 +72,7 @@ void AllProcesses::getOpenedProcesses() {
     Process* tempCurrentProcessList = nullptr;
     
     
-    
+    /*
     //the standart is not to do 2 enumprocesses calls it's to just call it as much times as we need until we can get the correct size
     DWORD cap = 1024;
     DWORD* pidTemp = new DWORD[cap];
@@ -19,166 +80,209 @@ void AllProcesses::getOpenedProcesses() {
     
     
     getAllPID(cap, pidTemp, numPID);
+    */
     
+
+
+    pidList windowedPids;
+    getActiveWindows(windowedPids);
+
+    if (currentProcessList == nullptr) {
+        getMetadataForPids(windowedPids, *this);
+    }
+    else {
+        
+
+
+
+        //we have to get the metadata only for the new processes
+        pidList activeWindows;
+        bool found = false;
+        for (int i = 0; i < windowedPids.count; i++) {
+            found = false;
+            for (int j = 0; j < numProcesses && !found; j++) {
+                if (windowedPids.pids[i] == currentProcessList[j].getPid()) {
+                    found = true;
+                }
+            }
+
+            if (!found) {
+                activeWindows.addPid(windowedPids.pids[i]);
+            }
+        }
+
+        getMetadataForPids(activeWindows, *this); //have to make it so that if there's already things in the allprocess to add not to remove
+
+        //before or after getting the metadata i should remove all the old currentProcessList
+        //prob in the while loop for time tracking i need to check the currentMouseProcess and if it has changed obv change the stopwatch
+        
+
+        //the metadata getter should only add processes because i am gonna pass only the newProcesses shouldn't have it doing bs
+        //have to remove after adding the other
+        
+        //have to remove oldProcesses after adding the new ones
+        
+        bool remains = false;
+        for (int i = 0; i < numProcesses; i++) {
+            remains = false;
+            for (int j = 0; j < windowedPids.count && !remains; j++) {
+                if (currentProcessList[i].getPid() == windowedPids.pids[j]) {
+                    remains = true;
+                }
+            }
+
+            if(!remains) {
+                removeProcessWPID(currentProcessList[i].getPid());
+                i--;
+            }
+        }
+    }
+        
+
+}
+
+
+
+Process AllProcesses::getFocusedProcess() const {
+    
+    HWND main = GetForegroundWindow();
+    DWORD pidFocused;
+    GetWindowThreadProcessId(main, &pidFocused);
+    int pos = -1;
+    bool found = false;
+
+
+    for (int i = 0; i < numProcesses && !found; i++) {
+        if (currentProcessList[i].getPid() == pidFocused) {
+            found = true;
+            pos = i;
+        }
+    }
+
+    if (found) {
+        return currentProcessList[pos];
+    }
+    else {
+        return systemAndMisc; //because if taskbar has control or start menu it would crash without this
+    }
+}
     
 
+int AllProcesses::getIdleSecondsFocusedProcess(bool videoModeEnabled, int secsBeforeVideoTimeOut) const { //secsBeforeVideoTimeOut should be always higher than 5mins NEEDS TO BE CONTROLED or bigger than the global variable for timeout
+    LASTINPUTINFO lastInput;
+    lastInput.cbSize = sizeof(LASTINPUTINFO);
+    int res; 
 
-    for (int i = 0; i < numPID; i++) {
+    if (!GetLastInputInfo(&lastInput)) { //bool to see if it could get it 
+        throw invalid_argument("couldn't get lastinput info");
+    }
+    int idleTimeS = (GetTickCount() - lastInput.dwTime) / 1000; //dw time returns in ms, get tick info works cause it gives us time since the computer is on
+    
 
-        //first thing is too openProcess if it fails it's a kernel/antivirus so i discard the pid
-        HANDLE processOpenAttemptRes = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pidTemp[i]);
-        // open process first argument is intention (read only here), second is if child processes of the program do they inherit the property, and third the pid
-        //might want to add PROCESS_VM_READ with an or to the intention later on
-        
-        
-        //all of this just to get the name of the process if it has been able to open it ofc
-        if (processOpenAttemptRes) {
-             
-           
-            DWORD bufferCharSize = MAX_PATH;
-            DWORD oldBufferCharSize = bufferCharSize;
-            char* bufferChar = new char[bufferCharSize];
-            bool works = false;
+    if(videoModeEnabled){
+        if ((secsBeforeVideoTimeOut > 0) && (idleTimeS > secsBeforeVideoTimeOut)) {
 
-            bool queryNameAttemptRes = false;
-            while (!works) {
-                queryNameAttemptRes = QueryFullProcessImageNameA(processOpenAttemptRes, 0, bufferChar, &bufferCharSize);
-                //first we check if we have opened the process if not it cannot query the name
-                //second is format so we put 0 as the default one, third is the name itself but it needs a buffer (char array) 
-                //windows has one called tchar with MAX_PATH, and the last parameter is input/output you put the size of the buffer and it returns
-                //how much it used so we need to make sure it didn't get chopped off
+        }
+        else if (secsBeforeVideoTimeOut == 0) { //0 is that no timeout so constantly primary if it's the focused process
+            HWND main = GetForegroundWindow();
+            
+            
+            
 
 
-                if (bufferCharSize == oldBufferCharSize && !queryNameAttemptRes) { //if it has returned the same size it probably didn't fit it in it's entirety
-                    oldBufferCharSize = bufferCharSize;             //basically also go into else to stop looping constantly if we can't get the name
-                    bufferCharSize *= 2;
-                    delete[] bufferChar;
-                    char* temp = new char[bufferCharSize];
-                    bufferChar = temp;
-                }
-                else {
-                    works = true;
-                }
+            
 
+
+
+
+            if (isWindowFullScreen(main)  &&
+                isWindowMultimediaTitle(main) &&
+                isWindowUsingAudio(main)
+                ) {
+                idleTimeS = 0;
             }
+        }
+    }
+    
+    return idleTimeS;
+}
 
-            if (!queryNameAttemptRes) {
-                //couldn't get the name so no acces prob therefore not an active one that matters
-                DeletePID(i, numPID, pidTemp);
-                i--; //bcuz it moved the elements the i position has a new pid
+
+
+void AllProcesses::addProcess(Process& a) {
+    int newS = numProcesses + 1;
+    Process* temp = new Process[newS]; 
+
+    for (int i = 0; i < numProcesses; i++) {
+        temp[i] = currentProcessList[i];
+    }
+
+    
+    temp[newS - 1] = a;
+
+    
+    delete[] currentProcessList;
+    currentProcessList = temp;
+    numProcesses = newS;    
+}
+
+
+
+void AllProcesses::removeProcessWPID(DWORD PID) {
+    
+    //find pid first
+    bool found = false;
+    int pos = -1 ;
+    for (int i = 0; i < numProcesses && !found; i++) {
+        if (currentProcessList[i].getPid() == PID) {
+            found = true;
+            pos = i;
+        }
+        //dunno if i should add an exception if it wasn't found with the whole numProcesses - 1 == i thingie
+    }
+
+
+    if (pos >= 0 && pos < numProcesses){
+        //overwrite that process by shifting
+        for (int i = pos; i < numProcesses - 1; i++) {
+            currentProcessList[i] = currentProcessList[i + 1];
+        }
+        numProcesses--;
+        if (numProcesses != 0) {
+            Process* temp = new Process[numProcesses];
+            for (int i = 0; i < numProcesses; i++) {
+                temp[i] = currentProcessList[i];
             }
-            else {
-
-
-                //!!
-                //!!
-                //!! 
-                //!!
-                //!!
-                //!!! change asap ts should only be done when the comparison between currentProcessList pids and the ones obtained from the function called are confirmed!!!
-                //ts is a bad idea not nice to grab the pids exe names for no reason if im gonna get rid of a good sum
-
-
-                //get full name from it
-                string processName(bufferChar, bufferCharSize); //we initialize the string with the constructor with an array pointer and it's size
-                //rfind is the same as a find but reverse
-                size_t posLastSlash = processName.rfind('\\'); //using \ as escape and then the actual char
-                
-                if (posLastSlash == string::npos) {
-                    throw invalid_argument("couldn't disect exe file name from directory");
-                }
-                processName = processName.substr(posLastSlash + 1);
-
-                //shoud have at this point a PID with a good processName
-                //still will have to check if they're invisible windows or they are not visible
-
-                //we always want for numProcesses to be accurate so it will have to be resized constantly
-                
-                Process* temp = new Process[tempNumProcesses + 1];
-                for (int i = 0; i < tempNumProcesses; i++) {
-                    temp[i] = tempCurrentProcessList[i];
-                }
-
-                temp[tempNumProcesses].PID = pidTemp[i];
-                temp[tempNumProcesses].processName = processName;
-               
-
-                //
-                // IMPORTANT
-                // 
-                // 
-                // 
-                //have to make sure to add the filename and open it so that data is loaded ig
-
-                
-                    
-                tempNumProcesses++;
-                delete[] tempCurrentProcessList;
-                tempCurrentProcessList = temp;
-
-
-            }
-
-
-                
-            delete[] bufferChar; //free up dyn memory used to extract name
-            //once everything has been done we need to closeProcess obv only has it open if we have entered the if
-            CloseHandle(processOpenAttemptRes);
+            delete[] currentProcessList;
+            currentProcessList = temp;
         }
         else {
-            //need to move all to the left you know, probably a protected process NOT IMPORTANT
-            /* for (int j = i; j < currNumProcesses - 1; j++) {
-                pidTemp[j] = pidTemp[j + 1];
-            }
-            currNumProcesses--; */
-
-
-            DeletePID(i, numPID, pidTemp);
-            i--; //bcuz it moved the elements the i position has a new pid
+            delete[] currentProcessList;
+            currentProcessList = nullptr;
         }
-
-
     }
-
-
-
-
-
-
-    //I HAVE NOW A LIST OF PROCESSES WITH THEIR NAMES/PID NOW I HAVE TO CHECK IF THE WINDOW IS VISIBLE
-
-    //enum windows gives you every window
-    //the first parameter you do a callback where you pass a function, YOU PASS IT WITHOUT PARAMETERS cause it's a pointer to the function so for each window it will run that function, IF PARAMETERS WERE PUT like a normal funciton in the first parameter it will run it and pass the result as a parameter
-    //because the data type of the callback is a WNDENUMPROC it expects the function having as it's parameter in the definition a HWND and an LPARAM and it has to be
-    // a BOOL CALLBACK, callback is so that it can run the function at the time it wants
     
-    //Second one is where the results are saved so an array, but it's an LPARAM so in one parameter you need to pass everything the pointer the size capacity, that's why it should be a struct, because it only takes one parameter
-    
+}
 
 
-    //the crazy thing is that hwnd
+bool AllProcesses::isWindowFullScreen(HWND& main) const {
+    HMONITOR hMonitor = MonitorFromWindow(main, MONITOR_DEFAULTTONEAREST); //gETS THE MONITOR
 
+    MONITORINFO monInf;
+    monInf.cbSize = sizeof(MONITORINFO);
+    GetMonitorInfo(hMonitor, &monInf); //saves into monInf the properties of hMonitor, hmonitor is like a dword for a monitor, and to get it's info we get it in a MONITORINFO thanks to GetMonitorInfo()
 
+    int monitorWidth = monInf.rcMonitor.right - monInf.rcMonitor.left;
+    int monitorHeight = monInf.rcMonitor.bottom - monInf.rcMonitor.top;
 
+    RECT rectangle;//rectangle data type holds the 4 corners left right top bottom each edge
+    GetWindowRect(main, &rectangle);
+    //we need width and height which is done by doing r-l t-b
+    int width = rectangle.right - rectangle.left;
+    int height = rectangle.top - rectangle.bottom;
 
-
-
-
-
-    //This are the actual shown windows not the other pids which are a list for the names nothing more 
-    //prob better to use normal ass vector but still wanna make the struct thingie
-    
-    pidList windowedPids;
-
-    if (EnumWindows(filterNonPrimaryWindows,(LPARAM)&windowedPids) == 0) { //thought of passing this but it's only logical to have the struct as a mediator to not do hard drive operations, only when an active process has been closed or opened.
-        //we cast it to an lparam which is a pointer and we pass the mem adress of the struct, that's the &'s purpose
-        throw invalid_argument("couldn't get windows enumwindows");
-    }
-
-    //now windowedPids have the active pids.
-    //if a pid is -1 should be ignored cuz GetWindowThreadProcessId failed
-
-
+    //getsystemmetrics with the parameter of sm_cvscreen gets the physical monitor max width, but it gets 
+    bool isFullScreen = (width >= monitorWidth) && (height >= monitorHeight);
 }
 
 
@@ -226,6 +330,7 @@ void getAllPID(DWORD& cap, DWORD*& array, DWORD& numPID) {
 
     }
 }
+
 
 
 
@@ -282,62 +387,250 @@ BOOL CALLBACK filterNonPrimaryWindows(HWND hwnd, LPARAM lparam) { //normal c++ p
 //CAN'T THROW EXCEPTIONS IN CALLBACKS, so i have to basically just obtain the valid pids
 
 
+//has to be after the struct declaration
+void getActiveWindows(pidList& a) {
+    //I HAVE NOW A LIST OF PROCESSES WITH THEIR NAMES/PID NOW I HAVE TO CHECK IF THE WINDOW IS VISIBLE
+
+    //enum windows gives you every window
+    //the first parameter you do a callback where you pass a function, YOU PASS IT WITHOUT PARAMETERS cause it's a pointer to the function so for each window it will run that function, IF PARAMETERS WERE PUT like a normal funciton in the first parameter it will run it and pass the result as a parameter
+    //because the data type of the callback is a WNDENUMPROC it expects the function having as it's parameter in the definition a HWND and an LPARAM and it has to be
+    // a BOOL CALLBACK, callback is so that it can run the function at the time it wants
+
+    //Second one is where the results are saved so an array, but it's an LPARAM so in one parameter you need to pass everything the pointer the size capacity, that's why it should be a struct, because it only takes one parameter
+
+    //This are the actual shown windows not the other pids which are a list for the names nothing more 
+    //prob better to use normal ass vector but still wanna make the struct thingie
 
 
-struct pidList {
-    size_t count = 0;
-    size_t capacity = 0;
-    DWORD* pids = nullptr;
-
-    pidList() {
-        count = 0;
-        capacity = 16; //feel like 16 windows isn't a crazy number
-        pids = new DWORD[capacity];
+    if (EnumWindows(filterNonPrimaryWindows, (LPARAM)&a) == 0) { //thought of passing this but it's only logical to have the struct as a mediator to not do hard drive operations, only when an active process has been closed or opened.
+        //we cast it to an lparam which is a pointer and we pass the mem adress of the struct, that's the &'s purpose
+        throw invalid_argument("couldn't get windows enumwindows");
     }
+}
 
 
-    pidList(const pidList& a) { //jic
-        //having it initialized by default causes a leak so better to have the def values in the def constructor even tho it makes no sense
-        pids = nullptr;
-        capacity = count = 0;
-        *this = a;
 
-    }
+void getMetadataForPids(const pidList& pidLs, AllProcesses& allP) {
 
-    pidList& operator=(const pidList& a) { //jic
-        if (this != &(a)) {
-            capacity = a.capacity;
-            count = a.count;
-            DWORD* temp = new DWORD[a.capacity];
-            for (int i = 0; i < count; i++) {
-                temp[i] = a.pids[i];
+
+    //do these one ive gotten the active windows and only for the ones that are new not the ones i already know the names off
+    for (int i = 0; i < pidLs.count; i++) {
+
+        //first thing is too openProcess if it fails it's a kernel/antivirus so i discard the pid
+        HANDLE processOpenAttemptRes = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pidLs.pids[i]);
+        // open process first argument is intention (read only here), second is if child processes of the program do they inherit the property, and third the pid
+        //might want to add PROCESS_VM_READ with an or to the intention later on
+
+
+        //all of this just to get the name of the process if it has been able to open it ofc
+        if (processOpenAttemptRes) {
+
+
+            DWORD bufferCharSize = MAX_PATH;
+            DWORD oldBufferCharSize = bufferCharSize;
+            char* bufferChar = new char[bufferCharSize];
+            bool works = false;
+
+            bool queryNameAttemptRes = false;
+            while (!works) {
+                queryNameAttemptRes = QueryFullProcessImageNameA(processOpenAttemptRes, 0, bufferChar, &bufferCharSize);
+                //first we check if we have opened the process if not it cannot query the name
+                //second is format so we put 0 as the default one, third is the name itself but it needs a buffer (char array) 
+                //windows has one called tchar with MAX_PATH, and the last parameter is input/output you put the size of the buffer and it returns
+                //how much it used so we need to make sure it didn't get chopped off
+
+
+                if (bufferCharSize == oldBufferCharSize && !queryNameAttemptRes) { //if it has returned the same size it probably didn't fit it in it's entirety
+                    oldBufferCharSize = bufferCharSize;             //basically also go into else to stop looping constantly if we can't get the name
+                    bufferCharSize *= 2;
+                    delete[] bufferChar;
+                    char* temp = new char[bufferCharSize];
+                    bufferChar = temp;
+                }
+                else {
+                    works = true;
+                }
+
             }
-            delete[] pids;
-            pids = temp;
-        }
-        return *this;
-    }
 
-
-    ~pidList() {
-        delete[] pids;
-    }
-
-
-    void addPid(DWORD pid) {
-        if (count + 1 > capacity) {
-            capacity *= 2;
-            DWORD* temp = new DWORD[capacity];
-            for (int i = 0; i < count; i++) {
-                temp[i] = pids[i];
+            if (!queryNameAttemptRes) {
+                //couldn't get the name so no acces prob therefore not an active one that matters
+                DeletePID(i, pidLs.count, pidLs.pids);
+                i--; //bcuz it moved the elements the i position has a new pid
             }
-            delete[] pids;
-            pids = temp;
+            else {
+
+
+                //!!
+                //!!
+                //!! 
+                //!!
+                //!!
+                //!!! change asap ts should only be done when the comparison between currentProcessList pids and the ones obtained from the function called are confirmed!!!
+                //ts is a bad idea not nice to grab the pids exe names for no reason if im gonna get rid of a good sum
+
+
+                //get full name from it
+                string processName(bufferChar, bufferCharSize); //we initialize the string with the constructor with an array pointer and it's size
+                //rfind is the same as a find but reverse
+                size_t posLastSlash = processName.rfind('\\'); //using \ as escape and then the actual char
+
+                if (posLastSlash == string::npos) {
+                    throw invalid_argument("couldn't disect exe file name from directory");
+                }
+                processName = processName.substr(posLastSlash + 1); //includes exe
+
+                //shoud have at this point a PID with a good processName
+
+                if (processName.rfind('.') == std::string::npos) {
+                    //has no extension weird
+                    Process temp(processName, pidLs.pids[i], processName);
+                    allP.addProcess(temp);
+                }
+                else {
+                    string processNameWOExtension = processName.substr(0,  processName.rfind('.'));
+                    Process temp(processName, pidLs.pids[i], processNameWOExtension);
+                    allP.addProcess(temp);
+                }
+                //with this i think i have succesfully added the process
+
+
+
+
+                /*
+                //we always want for numProcesses to be accurate so it will have to be resized constantly
+
+                Process* temp = new Process[tempNumProcesses + 1];
+                for (int i = 0; i < tempNumProcesses; i++) {
+                    temp[i] = tempCurrentProcessList[i];
+                }
+
+                temp[tempNumProcesses].PID = pidTemp[i];
+                temp[tempNumProcesses].processName = processName;
+
+
+                //
+                // IMPORTANT
+                // 
+                // 
+                // 
+                //have to make sure to add the filename and open it so that data is loaded ig
+
+
+
+                tempNumProcesses++;
+                delete[] tempCurrentProcessList;
+                tempCurrentProcessList = temp;
+                */
+
+            }
+
+
+
+            delete[] bufferChar; //free up dyn memory used to extract name
+            //once everything has been done we need to closeProcess obv only has it open if we have entered the if
+            CloseHandle(processOpenAttemptRes);
+        }
+        else {
+            //need to move all to the left you know, probably a protected process NOT IMPORTANT
+            /* for (int j = i; j < currNumProcesses - 1; j++) {
+                pidTemp[j] = pidTemp[j + 1];
+            }
+            currNumProcesses--; */
+
+
+            DeletePID(i, pidLs.count, pidLs.pids);
+            i--; //bcuz it moved the elements the i position has a new pid
         }
 
 
-        pids[count] = pid;
-        count++;
     }
 
-};
+
+}
+
+
+
+
+bool isWindowMultimediaTitle(HWND main) {
+    bool res = false;
+    int size = 256;
+    char* winName = new char[size];
+
+    int charsUsed = GetWindowTextA(main, winName, size);
+
+    while (charsUsed == size) { //This is most likely that it got cut off
+        size *= 2;
+        delete[] winName;
+        charsUsed = GetWindowTextA(main, winName, size);
+    }
+
+    string windowName = string(winName);
+
+    for (size_t i = 0; i < windowName.length(); i++) {
+        windowName[i] = std::tolower(static_cast<unsigned char>(windowName[i]));
+    }
+    for (int i = 0; i < numOfMultimediaProviders; i++) {
+
+        //no native to lower so i have to do it myself
+        for (size_t j = 0; j < multimediaProviders[i].length(); j++) { //CAN BE REMOVED IF I DO A CHECK IN GLOBALS THAT ALL THE INPUTTED AND addProvider is automatically converted to lowercase
+            multimediaProviders[i][j] = std::tolower(static_cast<unsigned char>(multimediaProviders[i][j]));
+        }
+
+        size_t matchBegin = windowName.find(multimediaProviders[i]);
+        if (matchBegin != string::npos) {
+            res = true;
+        }
+    }
+
+    return res;
+}
+
+
+DWORD getPidFromHWND(HWND main) {
+    DWORD pid;
+    if (GetWindowThreadProcessId(main, &pid) == 0) { //returns 0 on fail
+        throw invalid_argument("couldn't get pid from hwnd");
+    }
+    return pid;
+}
+
+
+
+bool isWindowUsingAudio(HWND main) {
+    //apparently the popup api for default audio management isn't that reliable i have to check the actual waves produced smh
+    
+    
+    if (FAILED(CoInitializeEx(NULL, COINIT_APARTMENTTHREADED))) { //Starts component object model for the thread of this program, com is used to talk to drivers with objects without it i can't create audio objects
+        throw invalid_argument("couldn't sart com engine");       //the first parameter is NULL always cause it's never used
+    }                                                             //second parameter is a flag slot with the COINIT_APARTMENTTHREADED we are assuring it that the objects will only be in a thread (apartment) and that only the thread that created it will use them 
+    else {
+        IMMDeviceEnumerator* pEnumerator = NULL; //multimedia datatype pointer
+        //imm is used to interact with mm because u can't 
+
+        //here we create an object for audio
+        HRESULT audioObjectCreator = CoCreateInstance(
+            __uuidof(MMDeviceEnumerator), //first parameter we indicate the kind of object we want so uuidof recognizes what immdeviceenumerator is multimedia type and creates a blueprint
+            NULL, // second parameter used to combine it with another COM object not the case so null
+            CLSCTX_ALL, //third parameter is where the code for the object is stored clsctx_all is an idc
+            __uuidof(IMMDeviceEnumerator), //fourth parameter is the kind of object we are going to interact with 
+            (void**)&pEnumerator //fifth parameter the object itself which it works with (void**) is the cast so that it works in an LPVOID
+        );
+
+
+        IMMDevice* pDevice = NULL; //Device being used to listen
+        HRESULT audioDeviceGetter = (*pEnumerator).GetDefaultAudioEndpoint(
+            eRender, //to indicate u care about the output if it was eCapture u care about the input
+            eConsole, //master System Audio
+            &pDevice //Returns the device IMMDevice
+        ); //now with this we have the device that is using the master audio
+
+
+
+        IAudioSessionManager2* pManager = NULL; //wtf why is there 2 and have to continue
+
+    }
+
+
+
+}
