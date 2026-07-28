@@ -5,6 +5,7 @@
 #include <mmdeviceapi.h>
 #include <audiopolicy.h>
 #include <comdef.h>
+#include <endpointvolume.h>
 
 using namespace std;
 
@@ -169,40 +170,43 @@ Process AllProcesses::getFocusedProcess() const {
     
 
 int AllProcesses::getIdleSecondsFocusedProcess(bool videoModeEnabled, int secsBeforeVideoTimeOut) const { //secsBeforeVideoTimeOut should be always higher than 5mins NEEDS TO BE CONTROLED or bigger than the global variable for timeout
-    LASTINPUTINFO lastInput;
-    lastInput.cbSize = sizeof(LASTINPUTINFO);
-    int res; 
+    int idleTimeS = -1; //used as sentinel value because when main returns null it's by a windows protected prompt so i don't get anything therefore i cannot track it so i should standby and continue tracking when this isn't the case anymore
+    HWND main = GetForegroundWindow();
 
-    if (!GetLastInputInfo(&lastInput)) { //bool to see if it could get it 
-        throw invalid_argument("couldn't get lastinput info");
-    }
-    int idleTimeS = (GetTickCount() - lastInput.dwTime) / 1000; //dw time returns in ms, get tick info works cause it gives us time since the computer is on
-    
 
-    if(videoModeEnabled){
-        if ((secsBeforeVideoTimeOut > 0) && (idleTimeS > secsBeforeVideoTimeOut)) {
+    if (main != NULL) {
+        
+        LASTINPUTINFO lastInput;
+        lastInput.cbSize = sizeof(LASTINPUTINFO);
+        int res;
 
+        if (!GetLastInputInfo(&lastInput)) { //bool to see if it could get it 
+            throw invalid_argument("couldn't get lastinput info");
         }
-        else if (secsBeforeVideoTimeOut == 0) { //0 is that no timeout so constantly primary if it's the focused process
-            HWND main = GetForegroundWindow();
-            
-            
-            
+        idleTimeS = (GetTickCount64() - lastInput.dwTime) / 1000; //dw time returns in ms, get tick info64 works cause it gives us time since the computer is on
 
 
-            
+        if (videoModeEnabled) { //0 is that no timeout so constantly primary if it's the focused process
 
-
-
-
-            if (isWindowFullScreen(main)  &&
+            if (isWindowFullScreen(main) &&
                 isWindowMultimediaTitle(main) &&
-                isWindowUsingAudio(main)
+                isWindowUsingAudio(main) //prob better to put last because it has to do a lot of stuff
                 ) {
-                idleTimeS = 0;
+                
+
+                if (secsBeforeVideoTimeOut == 0) {
+                    idleTimeS = 0;
+                } //this is last inputs so i should hijack and show 1 sec less than the globalTimeOut constantly if it's under the secsbeforevideotimeout 
+                else if (idleTimeS < secsBeforeVideoTimeOut && timeBeforeTimeOut < secsBeforeVideoTimeOut) {
+                    idleTimeS = timeBeforeTimeOut - 1;
+                }
+
+
             }
+
         }
-    }
+    } 
+    
     
     return idleTimeS;
 }
@@ -287,7 +291,7 @@ bool AllProcesses::isWindowFullScreen(HWND& main) const {
 
 
 
-void DeletePID(int pos, int total, DWORD* array) {
+void DeletePID(int pos, int &total, DWORD* array) {
 
     for (int j = pos; j < total - 1; j++) {
         array[j] = array[j + 1];
@@ -583,6 +587,8 @@ bool isWindowMultimediaTitle(HWND main) {
         }
     }
 
+    delete[] winName;
+
     return res;
 }
 
@@ -598,6 +604,7 @@ DWORD getPidFromHWND(HWND main) {
 
 
 bool isWindowUsingAudio(HWND main) {
+    bool res = false;
     //apparently the popup api for default audio management isn't that reliable i have to check the actual waves produced smh
     
     
@@ -626,11 +633,101 @@ bool isWindowUsingAudio(HWND main) {
         ); //now with this we have the device that is using the master audio
 
 
-
+        //now we disect the master audio coming out from the output device,  we are gonna create a master audio manager
         IAudioSessionManager2* pManager = NULL; //wtf why is there 2 and have to continue
+        //2 because the first one was bad, and getsessionenumerator is from the 2nd version
+
+        HRESULT hrManager = (*pDevice).Activate(
+            __uuidof(IAudioSessionManager2), //we want to access the audio manager for the speakers
+            CLSCTX_ALL, //where the code is stores idc
+            NULL, //for network activation, because it's local it doesn't matter
+            (void**)&pManager //output of the manager 
+        );
+
+
+
+        //now we have to get from the manager all the "cables" so apps that are transmitting audio
+        IAudioSessionEnumerator* pSessionList = NULL; //This holds all the apps that are transmitting audio throught the specificed deviced of the manager
+
+        HRESULT hrList = (*pManager).GetSessionEnumerator(&pSessionList); //only takes an argument where it returns the apps that are using audio session which is active
+        
+        DWORD winPid = 0;
+        GetWindowThreadProcessId(main, &winPid);
+        if (GetWindowThreadProcessId(main, &winPid) != 0 && winPid > 0) {
+            
+            int count = 0;
+            (*pSessionList).GetCount(&count);
+            
+            bool found = false;
+            for (int i = 0; i < count && !false; i++) {
+                IAudioSessionControl* pSessionControl = NULL; //this is for a specific session (process) not the whole list
+                (*pSessionList).GetSession(i, &pSessionControl); //we get the session from the i position in the lsit
+                
+
+                //crazy to understand this
+                //but iaudiosessioncontrol doesn't have the capacity to return a pid, so we need iaudiosessioncontrol2 BUT TO GET THE SESSION we need the first version
+                IAudioSessionControl2* pSessionControl2 = NULL;
+                (*pSessionControl).QueryInterface( //This makes pSessionControl2 have the features required for the pid but it requires an audiosessioncontrol1
+                    __uuidof(IAudioSessionControl2), //specify the data type of the output object
+                    (void**)&pSessionControl2); //with void we strip the data type of psessioncontrol (output) hence the first parameter
+                
+                //now we extract the pid
+                DWORD currentPidSession = 0;
+                (*pSessionControl2).GetProcessId(&currentPidSession);
+                if (currentPidSession == winPid ) {
+                    
+                    //now we have found in the pSessionList the process from the window but just because it's in the audioList deostn't mean it's actively using audio it can be paused or whatever
+
+                    IAudioMeterInformation* pMeter = NULL; //audio information from a session
+                    (*pSessionControl).QueryInterface( //We do a query interface of the session control of the actual process from the window
+                        __uuidof(IAudioMeterInformation), //data type of output
+                        (void**)&pMeter //output 
+                    );
+
+
+                    if (pMeter != NULL) { //something was obtained
+                        float vol = 0.0f;
+
+                        (*pMeter).GetPeakValue(&vol);
+                        
+                        if (vol > 0.0f) {
+                            //there's audio playing 
+                            res = true;
+                            found = true;
+                        }
+                    }
+
+                }
+
+
+
+
+                //need to release each pSessionControl because if not it leaks ram
+                (*pSessionControl2).Release();
+                (*pSessionControl).Release();
+
+
+            }
+
+
+
+        }
+        else {
+            throw invalid_argument("couldn't get pid from the window audioWindow or pid returned != > 0");
+        }
+
+
+        //not only the sessioncontrol, but also the enumerators, managers, device enumerator, and the coInitialize, similar to a .close() when dealing with files
+        if (pSessionList) pSessionList->Release();
+        if (pManager) pManager->Release();
+        if (pDevice) pDevice->Release();
+        if (pEnumerator) pEnumerator->Release();
 
     }
 
+    
+    CoUninitialize();
 
+    return res;
 
 }

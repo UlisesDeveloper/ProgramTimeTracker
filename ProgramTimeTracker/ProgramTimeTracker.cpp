@@ -2,12 +2,42 @@
 //
 
 #include <iostream>
+#include "AllProcesses.h"
+#include "globals.h"
+#include "Process.h"
+
 
 using namespace std;
 
 int main()
 {
-    std::cout << "Hello World!\n";
+    AllProcesses tracker;
+    tracker.getOpenedProcesses();
+    cout << "starting";
+
+    while (true) {
+        int idleTime = tracker.getIdleSecondsFocusedProcess(videoModeEnabled, secsBeforeVideoTimeOut);
+
+        if (idleTime == -1) {
+            //save tracked time, have to make something to immediately save
+        }
+        else {
+            tracker.getOpenedProcesses();
+            if (idleTime < timeBeforeTimeOut) {
+                //add 1 active time to active process
+                //add 1 to background time to all
+            }
+            else {
+                //doing nothing 
+                //add nothing time or 1 to background time to all decide
+            }
+
+        }
+
+
+        Sleep(1000);
+    }
+
 }
 
 // Run program: Ctrl + F5 or Debug > Start Without Debugging menu
