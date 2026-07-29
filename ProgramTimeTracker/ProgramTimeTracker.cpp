@@ -17,19 +17,23 @@ int main()
 
     while (true) {
         int idleTime = tracker.getIdleSecondsFocusedProcess(videoModeEnabled, secsBeforeVideoTimeOut);
-
+ 
         if (idleTime == -1) {
-            //save tracked time, have to make something to immediately save
+            //save tracked time, here and appart from that if it's oon the else 1 min with a physical timer of 60secs that each iteration it sums 1 and then resets when there's a save, and when removeProcessWPID i should save 
+
         }
         else {
             tracker.getOpenedProcesses();
             if (idleTime < timeBeforeTimeOut) {
                 //add 1 active time to active process
                 //add 1 to background time to all
+                tracker.addTimeActiveProcess(1);
+                tracker.addTimeBackgroundProcesses(1, false);
+
             }
             else {
-                //doing nothing 
-                //add nothing time or 1 to background time to all decide
+                
+                tracker.addTimeBackgroundProcesses(1000, true);
             }
 
         }

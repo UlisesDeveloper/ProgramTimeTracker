@@ -291,6 +291,47 @@ bool AllProcesses::isWindowFullScreen(HWND& main) const {
 
 
 
+void AllProcesses::addTimeActiveProcess(int toAdd) {
+    Process focused = getFocusedProcess();
+    DWORD focusedPID = focused.getPid();
+
+    bool found = false;
+    for (int i = 0; i < numProcesses && !found; i++) {
+        if (focusedPID == currentProcessList[i].getPid()) {
+            currentProcessList[i].todayTime += toAdd;
+            found = true;
+        }
+    }
+}
+
+void AllProcesses::addTimeBackgroundProcesses(int toAdd, bool timeOut) {
+    Process focused = getFocusedProcess();
+    DWORD focusedPID = focused.getPid();
+
+
+    if (timeOut) {
+        for (int i = 0; i < numProcesses; i++) {
+            
+            currentProcessList[i].backgroundTodayTime += toAdd;
+            
+        }
+    }
+    else {
+        for (int i = 0; i < numProcesses; i++) {
+            if (focusedPID != currentProcessList[i].getPid()) {
+                currentProcessList[i].backgroundTodayTime += toAdd;
+            }
+        }
+    }
+}
+
+
+
+
+
+
+
+
 void DeletePID(int pos, int &total, DWORD* array) {
 
     for (int j = pos; j < total - 1; j++) {

@@ -53,7 +53,11 @@ public:
 
 
 	bool isWindowFullScreen(HWND& main) const;
-	bool isWindowMultimediaTitle(HWND& main) const;
+	
+
+
+	void addTimeActiveProcess(int toAdd);
+	void addTimeBackgroundProcesses(int toAdd, bool timeOut);
 
 
 };
