@@ -22,12 +22,28 @@
     <ClInclude Include="include\AllProcesses.h" />
     <ClInclude Include="include\globals.h" />
     <ClInclude Include="include\Process.h" />
+    <ClInclude Include="include\resource.h" />
+    <ClInclude Include="resource.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="dependencies\imgui\imgui.cpp" />
+    <ClCompile Include="dependencies\imgui\imgui_demo.cpp" />
+    <ClCompile Include="dependencies\imgui\imgui_draw.cpp" />
+    <ClCompile Include="dependencies\imgui\imgui_impl_dx11.cpp" />
+    <ClCompile Include="dependencies\imgui\imgui_impl_win32.cpp" />
+    <ClCompile Include="dependencies\imgui\imgui_tables.cpp" />
+    <ClCompile Include="dependencies\imgui\imgui_widgets.cpp" />
     <ClCompile Include="src\AllProcesses.cpp" />
     <ClCompile Include="src\globals.cpp" />
     <ClCompile Include="src\Process.cpp" />
     <ClCompile Include="src\ProgramTimeTracker.cpp" />
+    <ClCompile Include="src\trackingLogic.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Resource.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="misc\ProgramTimeTracker.ico" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>18.0</VCProjectVersion>

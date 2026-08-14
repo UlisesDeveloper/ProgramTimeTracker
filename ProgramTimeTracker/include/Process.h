@@ -62,6 +62,9 @@ public:
 	//better to create a matrix for each month and do the sum to know the yearlyTimeArray so that getYearlyTimeArray returns an array with only each year's time
 
 	DWORD getPid() const;
+	string getProcessName() const;
+	string getLogFileName() const;
+	string getPathName() const;
 
 
 

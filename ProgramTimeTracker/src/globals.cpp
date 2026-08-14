@@ -2,8 +2,8 @@
 
 //IMPLEMENT FILE WHERE GLOBALS ARE SAVED AND I CAN LOAD CONFIG EACH TIME THE PROGRAM IS STARTED CAUSE IF NOT IT'S RAM BASED
 
-int timeBeforeTimeOut = 3000; //in secs unless the name specifies otherwise
-int secsBeforeVideoTimeOut = 6000;
+int timeBeforeTimeOut = 300; //in secs unless the name specifies otherwise
+int secsBeforeVideoTimeOut = 600;
 bool videoModeEnabled = false;
 
 int numOfMultimediaProviders = 10;

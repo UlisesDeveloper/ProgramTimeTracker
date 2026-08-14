@@ -118,6 +118,16 @@ DWORD Process::getPid() const {
 	return PID;
 }
 
+string Process::getProcessName() const {
+	return processName;
+}
+string Process::getLogFileName() const {
+	return logFileName;
+}
+string Process::getPathName() const {
+	return pathName;
+}
+
 
 void Process::ResetTime() {
 	//probably better to just delete the entire file so that it's "restarted"
