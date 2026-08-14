@@ -37,7 +37,7 @@ int main()
             }
 
             //the time for system in my opinion should only be able to be saved after it has exited system time imo, because if not im gonna have to be saving it constantly
-            tracker.addTimeToSystemProcess(1);
+            tracker.addTimeToSystemProcess(1); //only saved by autosave
             stillUAC = true;
         }
         else {

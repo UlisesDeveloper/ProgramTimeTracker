@@ -6,6 +6,8 @@
 #include <audiopolicy.h>
 #include <comdef.h>
 #include <endpointvolume.h>
+#include <dwmapi.h>
+#pragma comment(lib, "dwmapi.lib")
 
 using namespace std;
 
@@ -287,6 +289,8 @@ bool AllProcesses::isWindowFullScreen(HWND& main) const {
 
     //getsystemmetrics with the parameter of sm_cvscreen gets the physical monitor max width, but it gets 
     bool isFullScreen = (width >= monitorWidth) && (height >= monitorHeight);
+
+    return isFullScreen;
 }
 
 
@@ -326,11 +330,50 @@ void AllProcesses::addTimeBackgroundProcesses(int toAdd, bool timeOut) {
 }
 
 
-void AllProcesses::saveTime() const {
+void AllProcesses::saveTime()  {
     for (int i = 0; i < numProcesses; i++) {
-        currentProcessList[i].saveTime();
+
+        bool alreadySaved = false;
+        for (int j = 0; j < i; j++) {
+            if (currentProcessList[i].pathName == currentProcessList[j].pathName) {
+                alreadySaved = true;
+            }
+        }
+
+        if (!alreadySaved){
+            uint64_t maxActive = currentProcessList[i].todayTime;
+            uint64_t minBackground = currentProcessList[i].backgroundTodayTime;
+            //not saved so now from this pos onwards i check if it's repeated and if that's the case then i change the values to max or min if they're diff
+            for (int j = i + 1; j < numProcesses; j++) {
+                if (currentProcessList[i].pathName == currentProcessList[j].pathName) {
+                    
+                    if (currentProcessList[j].todayTime > maxActive) {
+                        maxActive = currentProcessList[j].todayTime;
+                    }
+
+                    if (currentProcessList[j].backgroundTodayTime < minBackground) {
+                        minBackground = currentProcessList[j].backgroundTodayTime;
+                    }
+
+                }
+            }
+
+            //Sync both files
+            for (int j = i; j < numProcesses; j++) {
+                if (currentProcessList[i].processName == currentProcessList[j].processName) {
+                    currentProcessList[j].todayTime = maxActive;
+                    currentProcessList[j].backgroundTodayTime = minBackground;
+                }
+            }
+
+
+            currentProcessList[i].saveTime();
+        }
     }
 	systemAndMisc.saveTime();
+
+    //have a great idea if i have 2 firefox instances like windows then they create separate processes
+    //check same name process and basically combine times and skip the other one saving as well
 }
 
 
@@ -350,7 +393,7 @@ void AllProcesses::addTimeToSystemProcess(int a) {
 
 
 
-void DeletePID(int pos, int &total, DWORD* array) {
+void DeletePID(int pos, size_t &total, DWORD* array) {
 
     for (int j = pos; j < total - 1; j++) {
         array[j] = array[j + 1];
@@ -473,7 +516,7 @@ void getActiveWindows(pidList& a) {
 
 
 
-void getMetadataForPids(const pidList& pidLs, AllProcesses& allP) {
+void getMetadataForPids(pidList& pidLs, AllProcesses& allP) {
 
 
     //do these one ive gotten the active windows and only for the ones that are new not the ones i already know the names off

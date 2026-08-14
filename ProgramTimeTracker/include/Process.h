@@ -73,7 +73,7 @@ public:
 
 	void resetInitial();
 
-	void saveTime() const; 
+	void saveTime() ; 
 
 	void resetDayTime();
 

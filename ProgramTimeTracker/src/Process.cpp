@@ -16,15 +16,26 @@ Process::Process(string fileName, DWORD pidDef, string nameOfProcess, string pat
 	logFileName = fileName;
 	pathName = pathNamed;
 
+
+	PID = pidDef;
+	if (nameOfProcess != "") {
+		processName = nameOfProcess;
+	}
+
+
 	if (file.is_open()) {
 		string currentLine = "";
+		string lastLine = "";
 		
 
 		//this should be replaced to something that gets the last line and is saved in currentLine
 		while (getline(file, currentLine)) {
+			if (currentLine != "") {
+				lastLine = currentLine;
+			}
 		}
 
-
+		currentLine = lastLine;
 
 
 		size_t posFirstColon = currentLine.find(':');
@@ -139,21 +150,24 @@ void Process::fileCreator(string fileName, DWORD pidDef, string nameOfProcess) c
 	else {
 		file << "- PID:" << endl << pidDef << endl << "- PROGRAM NAME:" << endl << nameOfProcess << endl << "- LOGS:" << endl;
 	}
-	appendCurrentDateToFile(fileName, *this);
-	
+
 	file.close();
+
+	appendCurrentDateToFile(fileName, *this);
+
 
 }
 
 
 void Process::deleteFile(string fileName) { //so that it's safe it deletes the file but also resets all values so that it's initialized properly
 	remove(fileName.c_str());
-	resetInitial();
+	resetDayTime();
+	sessionTime = 0;
 }
 
 
 
-void Process::saveTime() const {
+void Process::saveTime() {
 	//atp files have been created and everything and it has todays date and everything so only have to modify the time
 	ifstream file(logFileName); //append mode doesn't work cause it takes us to the end of last line, so we use standart rw mode
 	string currentLine = "";
@@ -254,9 +268,11 @@ void Process::resetDayTime() {
 int yearFrom2026() {
 
 	time_t now = time(nullptr);
-	tm* local = localtime(&now);//this transforms the time to the local structure
+	tm local;
+	localtime_s(&local, &now);//this transforms the time to the local structure
+	
 
-	int currYear = (*local).tm_year + 1900;
+	int currYear = local.tm_year + 1900;
 
 	if ((currYear - 2026) < 0) {
 		throw out_of_range("Year can't be before 2026, Correct System Time");
@@ -268,24 +284,27 @@ int yearFrom2026() {
 
 int currDay() {
 	time_t now = time(nullptr);
-	tm* local = localtime(&now);
-	int day = (*local).tm_mday; //ret 1 to 31 no 0 start 
+	tm local;
+	localtime_s(&local, &now);
+	int day = local.tm_mday; //ret 1 to 31 no 0 start 
 
 	return day;
 }
 
 int currMonth() {
 	time_t now = time(nullptr);
-	tm* local = localtime(&now);
-	int month = (*local).tm_mon + 1; //so no 0 based 
+	tm local;
+	localtime_s(&local, &now);
+	int month = local.tm_mon + 1; //so no 0 based 
 	return month;
 }
 
 int currYear() {
 	time_t now = time(nullptr);
-	tm* local = localtime(&now);//this transforms the time to the local structure
+	tm local;
+	localtime_s(&local, &now);//this transforms the time to the local structure
 
-	int currYear = (*local).tm_year + 1900;
+	int currYear = local.tm_year + 1900;
 	return currYear;
 }
 

@@ -62,7 +62,7 @@ public:
 	void addTimeBackgroundProcesses(int toAdd, bool timeOut);
 
 
-	void saveTime() const;
+	void saveTime();
 	void resetDayTime();
 	void addTimeToSystemProcess(int a);
 
@@ -71,10 +71,10 @@ public:
 
 
 
-void DeletePID(int pos, int total, DWORD* array); //doesn't resize capacity
+void DeletePID(int pos, size_t &total, DWORD* array); //doesn't resize capacity
 void getAllPID(DWORD& cap, DWORD*& array, DWORD& numPID); //returns numProcesses
 void getActiveWindows(pidList& a);
-void getMetadataForPids(const pidList& pidLs, AllProcesses& allP);
+void getMetadataForPids(pidList& pidLs, AllProcesses& allP);
 bool isWindowMultimediaTitle(HWND main);
 DWORD getPidFromHWND(HWND main);
 bool isWindowUsingAudio(HWND main);
