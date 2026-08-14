@@ -37,13 +37,13 @@ private:
 	DWORD PID;
 	string processName;
 	string logFileName;
-
+	string pathName;
 	//the process must not add time itself it must be done from allprocesses which knows if it's active
 
 public:
 	
 	Process(); //default
-	Process(string fileName, DWORD pidDef, string nameOfProcess = ""); //loads file data
+	Process(string fileName, DWORD pidDef, string nameOfProcess = "", string pathNamed = ""); //loads file data
 
 
 	//no need to create the copy constructor no dynamic memory
@@ -72,6 +72,10 @@ public:
 	void deleteFile(string fileName) ;
 
 	void resetInitial();
+
+	void saveTime() const; 
+
+	void resetDayTime();
 
 
 	

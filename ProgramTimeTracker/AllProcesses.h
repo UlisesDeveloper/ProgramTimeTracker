@@ -25,7 +25,9 @@ class AllProcesses
 private:
 	DWORD numProcesses = 0;
 	Process* currentProcessList = nullptr;
-	Process systemAndMisc = Process("systemAndMisc", 0, "systemAndMisc");
+	Process systemAndMisc = Process("logs/systemAndMisc.pttl", 0, "systemAndMisc");
+
+
 
 	//could be interesting that there is a process var here that has currentWin
 	//Which is the cursor one and in 5mins inactivity none for the clock but im
@@ -58,6 +60,11 @@ public:
 
 	void addTimeActiveProcess(int toAdd);
 	void addTimeBackgroundProcesses(int toAdd, bool timeOut);
+
+
+	void saveTime() const;
+	void resetDayTime();
+	void addTimeToSystemProcess(int a);
 
 
 };

@@ -326,9 +326,27 @@ void AllProcesses::addTimeBackgroundProcesses(int toAdd, bool timeOut) {
 }
 
 
+void AllProcesses::saveTime() const {
+    for (int i = 0; i < numProcesses; i++) {
+        currentProcessList[i].saveTime();
+    }
+	systemAndMisc.saveTime();
+}
 
 
 
+void AllProcesses::resetDayTime() {
+    for (int i = 0; i < numProcesses; i++) {
+        currentProcessList[i].resetDayTime();
+    }
+    systemAndMisc.resetDayTime();
+}
+
+void AllProcesses::addTimeToSystemProcess(int a) {
+    systemAndMisc.todayTime += a;
+    systemAndMisc.backgroundTodayTime += a; //Want it to always be synced the backgorund and today time for the system cause it makes no sense that there are diff values
+    systemAndMisc.sessionTime += a; 
+}
 
 
 
@@ -517,6 +535,7 @@ void getMetadataForPids(const pidList& pidLs, AllProcesses& allP) {
 
                 //get full name from it
                 string processName(bufferChar, bufferCharSize); //we initialize the string with the constructor with an array pointer and it's size
+                string pathName = processName;
                 //rfind is the same as a find but reverse
                 size_t posLastSlash = processName.rfind('\\'); //using \ as escape and then the actual char
 
@@ -529,12 +548,15 @@ void getMetadataForPids(const pidList& pidLs, AllProcesses& allP) {
 
                 if (processName.rfind('.') == std::string::npos) {
                     //has no extension weird
-                    Process temp(processName, pidLs.pids[i], processName);
+                    string fullFilePath = "logs/" + processName + ".pttl";
+                    Process temp(fullFilePath, pidLs.pids[i], processName, pathName);
                     allP.addProcess(temp);
                 }
                 else {
                     string processNameWOExtension = processName.substr(0,  processName.rfind('.'));
-                    Process temp(processName, pidLs.pids[i], processNameWOExtension);
+                    string fullFilePath = "logs/" + processNameWOExtension + ".pttl";
+                    
+                    Process temp(fullFilePath, pidLs.pids[i], processNameWOExtension, pathName);
                     allP.addProcess(temp);
                 }
                 //with this i think i have succesfully added the process

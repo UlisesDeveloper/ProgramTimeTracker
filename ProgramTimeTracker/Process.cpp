@@ -1,5 +1,8 @@
 #include "Process.h"
 #include <fstream>
+#include <filesystem>
+
+//PID on files is for diagnostic it changes a lot so it's not important
 
 Process::Process() {
 
@@ -7,11 +10,11 @@ Process::Process() {
 
 
 
-Process::Process(string fileName, DWORD pidDef, string nameOfProcess) { //horrid idea how does it get the pid has to have the pid name and whatever else
+Process::Process(string fileName, DWORD pidDef, string nameOfProcess, string pathNamed) { //horrid idea how does it get the pid has to have the pid name and whatever else
 
 	ifstream file(fileName);
 	logFileName = fileName;
-
+	pathName = pathNamed;
 
 	if (file.is_open()) {
 		string currentLine = "";
@@ -148,10 +151,105 @@ void Process::deleteFile(string fileName) { //so that it's safe it deletes the f
 	resetInitial();
 }
 
-void Process::resetInitial() {
-	sessionTime = todayTime = backgroundTodayTime = 0;
-};
 
+
+void Process::saveTime() const {
+	//atp files have been created and everything and it has todays date and everything so only have to modify the time
+	ifstream file(logFileName); //append mode doesn't work cause it takes us to the end of last line, so we use standart rw mode
+	string currentLine = "";
+	
+	
+	if (file.is_open()) {
+		if (!(filesystem::is_empty(logFileName))) {
+			string* fileContents = new string[300];
+			int stringsFileContents = 300;
+			int stringsUsed = 0;
+
+
+			while (getline(file, currentLine)) {
+				//Cannot delete lines nor do thinks like modifying specific things need ram rewrite
+				
+				//a vector/array of strings can make sense due to not having to lose ur mind finding the last line
+				
+				if (stringsUsed == stringsFileContents) {
+					string* temp = new string[stringsFileContents * 2];
+					for (int i = 0; i < stringsFileContents; i++) {
+						temp[i] = fileContents[i];
+					}
+					stringsFileContents *= 2;
+					delete[] fileContents;
+					fileContents = temp;
+				}
+
+
+				fileContents[stringsUsed] = currentLine;
+				stringsUsed++;
+			}
+			stringsUsed--; //no neglines problem cause we checked that the file wasn't empty
+
+			//StringsUsed is the centinel value to know where the array starts to have empty values and also to have the last day tracked
+			
+			//atp we got everything we wanted from the ifstream
+			file.close();
+
+
+			size_t posFirstColon = fileContents[stringsUsed].find(':');
+			size_t posSecondColon = fileContents[stringsUsed].find(':', posFirstColon + 1);
+			string date = fileContents[stringsUsed].substr(0, posFirstColon);
+			//find gives first pos
+			size_t posFirstSlash = date.find('/');
+			size_t posSecondSlash = date.find('/', posFirstSlash + 1);
+
+			if (posFirstColon == string::npos || posSecondColon == string::npos ||
+				posFirstSlash == string::npos || posSecondSlash == string::npos) {
+				delete[] fileContents;
+				throw invalid_argument("wrong format in process file");
+			}
+
+
+			if ((stoi(date.substr(0, posFirstSlash)) != currDay())
+				|| (stoi(date.substr(posFirstSlash + 1, posSecondSlash - posFirstSlash - 1)) != currMonth())
+				|| (stoi(date.substr(posSecondSlash + 1)) != currYear())
+				) {
+				stringsUsed++;
+
+				 
+			}
+				//Doesn't matter if currentDate is in the string or not we are gonna overwrite it anyways
+				//only need to make sure that if it's not to put it in the next string, but if it's there then overwrite the currentOne
+				//so with stringsUsed growing by 1 if the last entry isn't today, we can now modify the one in stringsUsed
+
+			string temp = to_string(currDay()) + '/' + to_string(currMonth()) + '/' + to_string(currYear()) + ':' + to_string(todayTime) + ':' + to_string(backgroundTodayTime);
+			fileContents[stringsUsed] = temp;
+
+
+			//now rewrite to the file
+			ofstream fileO(logFileName); //no append mode we intend to overwrite
+			for (int i = 0; i <= stringsUsed; i++) {
+				fileO << fileContents[i] << endl;
+			}
+
+			fileO.close();
+
+			delete[] fileContents;
+
+		}
+		else {
+			fileCreator(logFileName, PID, processName);
+			(*this).saveTime(); //recursion after file has been filled with contents  so it enters the 2nd empty 
+		}
+	}
+	else {
+		throw invalid_argument("file couldn't open");
+	}
+
+
+}
+
+
+void Process::resetDayTime() {
+	todayTime = backgroundTodayTime = 0;
+}
 
 int yearFrom2026() {
 
@@ -194,6 +292,10 @@ int currYear() {
 
 void appendCurrentDateToFile(string fileName, const Process& a) {
 	ofstream file(fileName, std::ios::app); //append mode 
-	file << currDay() << '/' << currMonth() << '/' << currYear() << ':' << a.getTodayTime() << ':' << a.getBackgroundTodayTime();
+	if (!(file.is_open())) {
+		throw invalid_argument("file couldn't open");
+	}
+
+	file << currDay() << '/' << currMonth() << '/' << currYear() << ':' << a.getTodayTime() << ':' << a.getBackgroundTodayTime() << endl; //Do the endl so always a date is added to the file append mode will be in the empty end line
 	file.close();
 }
