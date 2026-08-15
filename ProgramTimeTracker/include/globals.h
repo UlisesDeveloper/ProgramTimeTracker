@@ -1,11 +1,20 @@
 #pragma once
 #include <string>
 
-using namespace std;
+
 
 extern int timeBeforeTimeOut;
 extern int secsBeforeVideoTimeOut;
 extern bool videoModeEnabled;
 
 extern int numOfMultimediaProviders;
-extern string* multimediaProviders;
+extern std::string* multimediaProviders;
+
+
+
+extern bool g_RunStartup;	
+
+bool CheckIfRunsAtStartup();
+void RunAtStartup(bool enable);
+
+

@@ -1,0 +1,14 @@
+300
+600
+0
+10
+youtube
+Microsoft.Media.Player
+netflix
+vlc
+hulu
+prime video
+disney+
+apple tv
+twitch
+mpv

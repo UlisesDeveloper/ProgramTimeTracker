@@ -11,6 +11,10 @@
 #include "Process.h"
 #include <filesystem>
 #include <shellapi.h>
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
+
 
 //custom Windows message ID for tray interactions
 #define WM_APP_TRAYMSG (WM_APP + 1)
@@ -41,331 +45,570 @@ void CleanupDeviceD3D();
 void CreateRenderTarget();
 void CleanupRenderTarget();
 LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+void LoadSettingsFile();
+void SaveSettingsFile(string* multimProvWritten);
+
 
 // Main code
-int main(int, char**)
+int main(int argc, char** argv)
 {
-    // Make process DPI aware and obtain main monitor scale
-    ImGui_ImplWin32_EnableDpiAwareness();
-    float main_scale = ImGui_ImplWin32_GetDpiScaleForMonitor(::MonitorFromPoint(POINT{ 0, 0 }, MONITOR_DEFAULTTOPRIMARY));
+    try {
 
-    HINSTANCE hInstance = GetModuleHandle(nullptr);
-
-    HICON customIcon = (HICON)LoadImageW(
-        nullptr,
-        L"misc\\ProgramTimeTracker.ico", 
-        IMAGE_ICON,
-        0, 0,
-        LR_LOADFROMFILE | LR_DEFAULTSIZE
-    );
-
-
-    // Create application window
-    WNDCLASSEXW wc = { sizeof(wc), CS_CLASSDC, WndProc, 0L, 0L, hInstance, customIcon, nullptr, nullptr, nullptr, L"ImGui Example", customIcon };
-    ::RegisterClassExW(&wc);
-    HWND hwnd = ::CreateWindowW(wc.lpszClassName, L"Program Time Tracker", WS_OVERLAPPEDWINDOW, 100, 100, (int)(1280 * main_scale), (int)(800 * main_scale), nullptr, nullptr, wc.hInstance, nullptr);
-
-    // Initialize Direct3D
-    if (!CreateDeviceD3D(hwnd))
-    {
-        CleanupDeviceD3D();
-        ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
-        return 1;
-    }
-
-    // Show the window
-    ::ShowWindow(hwnd, SW_SHOWDEFAULT);
-    ::UpdateWindow(hwnd);
-
-
-    //Set system tray
-    ZeroMemory(&s_NID, sizeof(s_NID));
-    s_NID.cbSize = sizeof(s_NID);
-    s_NID.hWnd = hwnd;
-    s_NID.uID = ID_TRAY_ICON;
-    s_NID.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
-    s_NID.uCallbackMessage = WM_APP_TRAYMSG;
-    s_NID.hIcon = customIcon; // Uses your loaded HICON from earlier!
-    wcscpy_s(s_NID.szTip, L"Program Time Tracker");
-    Shell_NotifyIconW(NIM_ADD, &s_NID);
-
-    // Setup Dear ImGui context
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO(); (void)io;
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
-
-    // Setup Dear ImGui style
-    ImGui::StyleColorsDark();
-    //ImGui::StyleColorsLight();
-
-    // Setup scaling
-    ImGuiStyle& style = ImGui::GetStyle();
-    style.ScaleAllSizes(main_scale);        // Bake a fixed style scale. (until we have a solution for dynamic style scaling, changing this requires resetting Style + calling this again)
-    style.FontScaleDpi = main_scale;        // Set initial font scale. (in docking branch: using io.ConfigDpiScaleFonts=true automatically overrides this for every window depending on the current monitor)
-
-    // Setup Platform/Renderer backends
-    ImGui_ImplWin32_Init(hwnd);
-    ImGui_ImplDX11_Init(g_pd3dDevice, g_pd3dDeviceContext);
-
-    // Load Fonts
-    // - If fonts are not explicitly loaded, Dear ImGui will select an embedded font: either AddFontDefaultVector() or AddFontDefaultBitmap().
-    //   This selection is based on (style.FontSizeBase * style.FontScaleMain * style.FontScaleDpi) reaching a small threshold.
-    // - You can load multiple fonts and use ImGui::PushFont()/PopFont() to select them.
-    // - If a file cannot be loaded, AddFont functions will return a nullptr. Please handle those errors in your code (e.g. use an assertion, display an error and quit).
-    // - Read 'docs/FONTS.md' for more instructions and details.
-    // - Use '#define IMGUI_ENABLE_FREETYPE' in your imconfig file to use FreeType for higher quality font rendering.
-    // - Remember that in C/C++ if you want to include a backslash \ in a string literal you need to write a double backslash \\ !
-    //style.FontSizeBase = 20.0f;
-    //io.Fonts->AddFontDefaultVector();
-    //io.Fonts->AddFontDefaultBitmap();
-    //io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\segoeui.ttf");
-    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/DroidSans.ttf");
-    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Roboto-Medium.ttf");
-    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Cousine-Regular.ttf");
-    //ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf");
-    //IM_ASSERT(font != nullptr);
-
-    // Our state
-    bool show_demo_window = true;
-    bool show_credits_window = false;
-    bool show_another_window = false;
-    ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
-
-
-
-
-    filesystem::create_directory("logs");
-    //AllProcesses tracker;
-    //moved it to the top
-    tracker.getOpenedProcesses();
-    cout << "starting";
-    bool stillUAC = false;
-    int startDay = currDay();
-    int timeSinceAutoSave = 0;
-    uint64_t lastTrackerTick = GetTickCount64(); //Stopwatch
-
-
-    // Main loop
-    bool done = false;
-    while (!done)
-    {
-        // Poll and handle messages (inputs, window resize, etc.)
-        // See the WndProc() function below for our to dispatch events to the Win32 backend.
-        MSG msg;
-        while (::PeekMessage(&msg, nullptr, 0U, 0U, PM_REMOVE))
+        HANDLE hMutex = CreateMutexW(NULL, TRUE, L"ProgramTimeTracker_MUTEX");
+        if (GetLastError() == ERROR_ALREADY_EXISTS)
         {
-            ::TranslateMessage(&msg);
-            ::DispatchMessage(&msg);
-            if (msg.message == WM_QUIT)
-                done = true;
-        }
-        if (done)
-            break;
-
-        // Handle window being minimized or screen locked
-        if (g_SwapChainOccluded && g_pSwapChain->Present(0, DXGI_PRESENT_TEST) == DXGI_STATUS_OCCLUDED)
-        {
-            ::Sleep(10);
-            continue;
-        }
-        g_SwapChainOccluded = false;
-
-        // Handle window resize (we don't resize directly in the WM_SIZE handler)
-        if (g_ResizeWidth != 0 && g_ResizeHeight != 0)
-        {
-            CleanupRenderTarget();
-            g_pSwapChain->ResizeBuffers(0, g_ResizeWidth, g_ResizeHeight, DXGI_FORMAT_UNKNOWN, 0);
-            g_ResizeWidth = g_ResizeHeight = 0;
-            CreateRenderTarget();
-        }
-
-
-
-
-
-        //Code here
-        if (GetTickCount64() - lastTrackerTick >= 1000) { //This is the "Sleep" for a second thing
-            int idleTime = tracker.getIdleSecondsFocusedProcess(videoModeEnabled, secsBeforeVideoTimeOut); //Ts shouldn't take arguments they're globals
-
-            if (idleTime == -1) {
-                //save tracked time, here and appart from that if it's oon the else 1 min with a physical timer of 60secs that each iteration it sums 1 and then resets when there's a save, and when removeProcessWPID i should save 
-                //-1 is because i can't access the window cause it's protected, so we save time to file, if it is constantly -1 then it's stuck in UAC so we should do nothing
-
-                //add second to systemAndMisc process as well;
-
-                if (!stillUAC) {
-                    tracker.saveTime();
-                }
-
-                //the time for system in my opinion should only be able to be saved after it has exited system time imo, because if not im gonna have to be saving it constantly
-                tracker.addTimeToSystemProcess(1); //only saved by autosave
-                stillUAC = true;
+            //if it enters another instance is already running of the program
+            HWND hExisting = FindWindowW(L"ProgramTimeTrackerClass", nullptr); //Finds the other instance
+            if (hExisting)
+            {
+                //make it as if we pressed the traybar icon 
+                PostMessageW(hExisting, WM_APP_TRAYMSG, 0, WM_LBUTTONUP);
+                SetForegroundWindow(hExisting);
             }
-            else {
-                stillUAC = false;
-                if (startDay != currDay()) {
-                    tracker.saveTime();
-                    tracker.resetDayTime();
-                    startDay = currDay();
-                }
 
-                tracker.getOpenedProcesses();
-                if (idleTime < timeBeforeTimeOut) {
-                    //add 1 active time to active process
-                    //add 1 to background time to all
-                    tracker.addTimeActiveProcess(1);
-                    tracker.addTimeBackgroundProcesses(1, false);
 
+            return 0; //kills this instance that tried to appear
+        }
+
+
+
+
+        // Make process DPI aware and obtain main monitor scale
+        ImGui_ImplWin32_EnableDpiAwareness();
+        float main_scale = ImGui_ImplWin32_GetDpiScaleForMonitor(::MonitorFromPoint(POINT{ 0, 0 }, MONITOR_DEFAULTTOPRIMARY));
+
+        HINSTANCE hInstance = GetModuleHandle(nullptr);
+
+        HICON customIcon = (HICON)LoadImageW(
+            nullptr,
+            L"misc\\ProgramTimeTracker.ico",
+            IMAGE_ICON,
+            0, 0,
+            LR_LOADFROMFILE | LR_DEFAULTSIZE
+        );
+
+
+        // Create application window
+        WNDCLASSEXW wc = { sizeof(wc), CS_CLASSDC, WndProc, 0L, 0L, hInstance, customIcon, nullptr, nullptr, nullptr, L"ProgramTimeTrackerClass", customIcon };
+        ::RegisterClassExW(&wc);
+        HWND hwnd = ::CreateWindowW(wc.lpszClassName, L"Program Time Tracker", WS_OVERLAPPEDWINDOW, 100, 100, (int)(1280 * main_scale), (int)(800 * main_scale), nullptr, nullptr, wc.hInstance, nullptr);
+
+        // Initialize Direct3D
+        if (!CreateDeviceD3D(hwnd))
+        {
+            CleanupDeviceD3D();
+            ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
+            return 1;
+        }
+
+        // Show the window
+
+
+        //We hijack the show the window to not show it if there's a hidden flag
+        bool startHidden = false;
+        for (int i = 1; i < argc; i++) {
+            if (strcmp(argv[i], "--hidden") == 0) { //if they are the same string comparator
+                startHidden = true;
+            }
+        }
+        if (startHidden) {
+            ::ShowWindow(hwnd, SW_HIDE);
+        }
+        else {
+            ::ShowWindow(hwnd, SW_SHOWDEFAULT);
+        }
+        ::UpdateWindow(hwnd);
+
+
+        //Set system tray
+        ZeroMemory(&s_NID, sizeof(s_NID));
+        s_NID.cbSize = sizeof(s_NID);
+        s_NID.hWnd = hwnd;
+        s_NID.uID = ID_TRAY_ICON;
+        s_NID.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
+        s_NID.uCallbackMessage = WM_APP_TRAYMSG;
+        s_NID.hIcon = customIcon; // Uses your loaded HICON from earlier!
+        wcscpy_s(s_NID.szTip, L"Program Time Tracker");
+        Shell_NotifyIconW(NIM_ADD, &s_NID);
+
+        // Setup Dear ImGui context
+        IMGUI_CHECKVERSION();
+        ImGui::CreateContext();
+        ImGuiIO& io = ImGui::GetIO(); (void)io;
+        io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+        io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+
+        // Setup Dear ImGui style
+        ImGui::StyleColorsDark();
+        //ImGui::StyleColorsLight();
+
+        // Setup scaling
+        ImGuiStyle& style = ImGui::GetStyle();
+        style.ScaleAllSizes(main_scale);        // Bake a fixed style scale. (until we have a solution for dynamic style scaling, changing this requires resetting Style + calling this again)
+        style.FontScaleDpi = main_scale;        // Set initial font scale. (in docking branch: using io.ConfigDpiScaleFonts=true automatically overrides this for every window depending on the current monitor)
+
+        // Setup Platform/Renderer backends
+        ImGui_ImplWin32_Init(hwnd);
+        ImGui_ImplDX11_Init(g_pd3dDevice, g_pd3dDeviceContext);
+
+        // Load Fonts
+        // - If fonts are not explicitly loaded, Dear ImGui will select an embedded font: either AddFontDefaultVector() or AddFontDefaultBitmap().
+        //   This selection is based on (style.FontSizeBase * style.FontScaleMain * style.FontScaleDpi) reaching a small threshold.
+        // - You can load multiple fonts and use ImGui::PushFont()/PopFont() to select them.
+        // - If a file cannot be loaded, AddFont functions will return a nullptr. Please handle those errors in your code (e.g. use an assertion, display an error and quit).
+        // - Read 'docs/FONTS.md' for more instructions and details.
+        // - Use '#define IMGUI_ENABLE_FREETYPE' in your imconfig file to use FreeType for higher quality font rendering.
+        // - Remember that in C/C++ if you want to include a backslash \ in a string literal you need to write a double backslash \\ !
+        //style.FontSizeBase = 20.0f;
+        //io.Fonts->AddFontDefaultVector();
+        //io.Fonts->AddFontDefaultBitmap();
+        //io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\segoeui.ttf");
+        //io.Fonts->AddFontFromFileTTF("../../misc/fonts/DroidSans.ttf");
+        //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Roboto-Medium.ttf");
+        //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Cousine-Regular.ttf");
+        //ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf");
+        //IM_ASSERT(font != nullptr);
+
+        // Our state
+        bool show_demo_window = true;
+        bool show_credits_window = false;
+        bool show_settings_window = false;
+        bool show_another_window = false;
+        ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+
+
+
+
+        //filesystem::create_directory("logs");
+        //Error prone
+        LoadSettingsFile();
+        bool firstStartup = false;
+        std::error_code ec;
+        if (!std::filesystem::exists("logs"))
+        {
+            firstStartup = true;
+            std::filesystem::create_directories("logs", ec);
+            if (ec)
+            {
+                throw invalid_argument("Warning: Could not create logs directory, close the program and create it yourself");
+            }
+        }
+
+
+
+
+        //AllProcesses tracker;
+        //moved it to the top
+        tracker.getOpenedProcesses();
+        cout << "starting";
+        bool stillUAC = false;
+        int startDay = currDay();
+        int timeSinceAutoSave = 0;
+        uint64_t lastTrackerTick = GetTickCount64(); //Stopwatch
+
+
+        if (firstStartup) {
+
+            g_RunStartup = true;
+            RunAtStartup(true);
+            firstStartup = false;
+        }
+        else {
+            g_RunStartup = CheckIfRunsAtStartup();
+        }
+
+
+
+        // Main loop
+        bool done = false;
+        while (!done)
+        {
+            // Poll and handle messages (inputs, window resize, etc.)
+            // See the WndProc() function below for our to dispatch events to the Win32 backend.
+            MSG msg;
+            while (::PeekMessage(&msg, nullptr, 0U, 0U, PM_REMOVE))
+            {
+                ::TranslateMessage(&msg);
+                ::DispatchMessage(&msg);
+                if (msg.message == WM_QUIT)
+                    done = true;
+            }
+            if (done)
+                break;
+
+            // Handle window being minimized or screen locked
+            if (g_SwapChainOccluded && g_pSwapChain->Present(0, DXGI_PRESENT_TEST) == DXGI_STATUS_OCCLUDED)
+            {
+                ::Sleep(10);
+                continue;
+            }
+            g_SwapChainOccluded = false;
+
+            // Handle window resize (we don't resize directly in the WM_SIZE handler)
+            if (g_ResizeWidth != 0 && g_ResizeHeight != 0)
+            {
+                CleanupRenderTarget();
+                g_pSwapChain->ResizeBuffers(0, g_ResizeWidth, g_ResizeHeight, DXGI_FORMAT_UNKNOWN, 0);
+                g_ResizeWidth = g_ResizeHeight = 0;
+                CreateRenderTarget();
+            }
+
+
+
+
+
+            //Code here
+            if (GetTickCount64() - lastTrackerTick >= 1000) { //This is the "Sleep" for a second thing
+                int idleTime = tracker.getIdleSecondsFocusedProcess(videoModeEnabled, secsBeforeVideoTimeOut); //Ts shouldn't take arguments they're globals
+
+                if (idleTime == -1) {
+                    //save tracked time, here and appart from that if it's oon the else 1 min with a physical timer of 60secs that each iteration it sums 1 and then resets when there's a save, and when removeProcessWPID i should save 
+                    //-1 is because i can't access the window cause it's protected, so we save time to file, if it is constantly -1 then it's stuck in UAC so we should do nothing
+
+                    //add second to systemAndMisc process as well;
+
+                    if (!stillUAC) {
+                        tracker.saveTime();
+                    }
+
+                    //the time for system in my opinion should only be able to be saved after it has exited system time imo, because if not im gonna have to be saving it constantly
+                    tracker.addTimeToSystemProcess(1); //only saved by autosave
+                    stillUAC = true;
                 }
                 else {
+                    stillUAC = false;
+                    if (startDay != currDay()) {
+                        tracker.saveTime();
+                        tracker.resetDayTime();
+                        startDay = currDay();
+                    }
 
-                    tracker.addTimeBackgroundProcesses(1, true); //basically also adds background time to "active" process after the timeout
+                    tracker.getOpenedProcesses();
+                    if (idleTime < timeBeforeTimeOut) {
+                        //add 1 active time to active process
+                        //add 1 to background time to all
+                        tracker.addTimeActiveProcess(1);
+                        tracker.addTimeBackgroundProcesses(1, false);
+
+                    }
+                    else {
+
+                        tracker.addTimeBackgroundProcesses(1, true); //basically also adds background time to "active" process after the timeout
+                    }
+
                 }
 
+
+                timeSinceAutoSave++;
+                if (timeSinceAutoSave >= 300) {
+                    tracker.saveTime();
+                    timeSinceAutoSave = 0;
+                }
+
+                lastTrackerTick = GetTickCount64(); // Reset stopwatch
             }
 
 
-            timeSinceAutoSave++;
-            if (timeSinceAutoSave >= 300) {
+            // Start the Dear ImGui frame
+            ImGui_ImplDX11_NewFrame();
+            ImGui_ImplWin32_NewFrame();
+            ImGui::NewFrame();
+
+
+            //fill os window
+            ImGuiIO& io = ImGui::GetIO();
+
+            //Force the ImGui window to start at top-left (0,0) and match the full screen size
+            ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f));
+            ImGui::SetNextWindowSize(io.DisplaySize);
+
+            // 2. Remove internal padding so widgets touch the actual window borders
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10.0f, 10.0f));
+
+            // 3. Strip away the fake title bar, borders, and resize handles
+            ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration |
+                ImGuiWindowFlags_NoMove |
+                ImGuiWindowFlags_NoSavedSettings |
+                ImGuiWindowFlags_NoBringToFrontOnFocus;
+
+
+            //Window customization
+            ImGui::Begin("Program Time Tracker v.1.0.0", nullptr, flags);
+
+            ImGui::Text("Program Version: 1.0.0  ");
+            ImGui::SameLine(0.0f, 1.0f);
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.6f, 0.1f, 0.1f, 1.0f)); // red
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.8f, 0.2f, 0.2f, 1.0f)); //hover over
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.4f, 0.0f, 0.0f, 1.0f)); //when pressed
+            if (ImGui::SmallButton("Kill")) {
                 tracker.saveTime();
-                timeSinceAutoSave = 0;
+                done = true; //Stops the continuous loop
+            }
+            ImGui::PopStyleColor(3);
+
+
+            if (ImGui::SmallButton("excpetion test")) {
+                throw out_of_range("marinero de los mares con las olas de cartulina");
             }
 
-            lastTrackerTick = GetTickCount64(); // Reset stopwatch
-        }
-
-
-        // Start the Dear ImGui frame
-        ImGui_ImplDX11_NewFrame();
-        ImGui_ImplWin32_NewFrame();
-        ImGui::NewFrame();
-
-
-        //fill os window
-        ImGuiIO& io = ImGui::GetIO();
-
-        //Force the ImGui window to start at top-left (0,0) and match the full screen size
-        ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f));
-        ImGui::SetNextWindowSize(io.DisplaySize);
-
-        // 2. Remove internal padding so widgets touch the actual window borders
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10.0f, 10.0f));
-
-        // 3. Strip away the fake title bar, borders, and resize handles
-        ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration |
-            ImGuiWindowFlags_NoMove |
-            ImGuiWindowFlags_NoSavedSettings |
-            ImGuiWindowFlags_NoBringToFrontOnFocus;
-        
-
-        //Window customization
-        ImGui::Begin("Program Time Tracker v.1.0.0", nullptr, flags);
-
-        ImGui::Text("Program Version: 1.0.0");
-        ImGui::Text("Tracking Engine: RUNNING");
-        ImGui::Text("Seconds until next Auto-Save: %d", timeBeforeTimeOut - timeSinceAutoSave);
-        if (ImGui::Button("Save Now")) {
-            tracker.saveTime();
-        }
-
-        ImGui::Separator();
-
-        Process activeApp = tracker.getFocusedProcess();
-        ImGui::Text("Currently Focused PID: %lu", activeApp.getPid());
-        ImGui::Text("Currently Focused Name: %s", activeApp.getProcessName().c_str());
-        ImGui::Text("Currently Focused Path: %s", activeApp.getLogFileName().c_str());
-        ImGui::Text("Currently Focused Path: %s", activeApp.getPathName().c_str());
-        ImGui::Text("Active Time Today: %llu seconds", activeApp.getTodayTime());
-        ImGui::Text("Background Time Today: %llu seconds", activeApp.getBackgroundTodayTime());
-
-        ImGui::Separator();
-
-        if (ImGui::Button("Credits")) {
-            show_credits_window = true; // Opens the credits window!
-        }
-
-        ImGui::PopStyleVar();
-        ImGui::End();
-
-
-        //credits window
-        if (show_credits_window)
-        {
-            // size for next window
-            ImGui::SetNextWindowSize(ImVec2(400.0f, 200.0f), ImGuiCond_FirstUseEver);
-
-            // Begin the window, passing the boolean so the "X" button on it actually closes it
-            if (ImGui::Begin("Credits", &show_credits_window))
-            {
-                ImGui::Text("Program Time Tracker v1.0.0");
-                ImGui::Separator();
-                ImGui::Text("Created by: Ulises Romero López ");
-                ImGui::SameLine(0.0f, 1.0f);
-                
-                if (ImGui::SmallButton("WebPage"))
-                {
-                    // Opens the URL in the default browser
-                    ShellExecuteW(nullptr, L"open", L"https://ulis.es", nullptr, nullptr, SW_SHOWNORMAL);
-                }
-                ImGui::SameLine(0.0f, 1.0f);
-                if (ImGui::SmallButton("GitHub"))
-                {
-                    // Opens the URL in the default browser
-                    ShellExecuteW(nullptr, L"open", L"https://github.com/UlisesDeveloper", nullptr, nullptr, SW_SHOWNORMAL);
-                }
-
-                ImGui::Text("Built with C++, Win32 API & Dear ImGui.");
-                ImGui::Text("Icon by Google (Apache 2.0 License)");
-                ImGui::SameLine(0.0f, 1.0f);
-                if (ImGui::SmallButton("->##icon_link"))
-                {
-                    // Opens the URL in the default browser
-                    ShellExecuteW(nullptr, L"open", L"https://www.iconarchive.com/show/noto-emoji-travel-places-icons-by-google/42608-stopwatch-icon.html", nullptr, nullptr, SW_SHOWNORMAL);
-                }
-
-                ImGui::Dummy(ImVec2(0.0f, 20.0f));
-
-                if (ImGui::Button("GitHub Repo")) {
-                    ShellExecuteW(nullptr, L"open", L"https://github.com/UlisesDeveloper/ProgramTimeTracker", nullptr, nullptr, SW_SHOWNORMAL);
-                }
-
-                /*
-                if (ImGui::Button("Close")) {
-                    show_credits_window = false;
-                }
-                */
+            ImGui::Text("Tracking Engine: RUNNING");
+            ImGui::Text("Seconds until next Auto-Save: %d", timeBeforeTimeOut - timeSinceAutoSave);
+            if (ImGui::Button("Save Now")) {
+                tracker.saveTime();
             }
+
+            ImGui::Separator();
+            if (ImGui::Button("Current")) {
+            }
+            ImGui::SameLine(0.0f, 1.0f);
+            if (ImGui::Button("Day")) {
+            }
+            ImGui::SameLine(0.0f, 1.0f);
+            if (ImGui::Button("Week")) {
+            }
+            ImGui::SameLine(0.0f, 1.0f);
+            if (ImGui::Button("Month")) {
+            }
+            ImGui::SameLine(0.0f, 1.0f);
+            if (ImGui::Button("Year")) {
+            }
+
+            ImGui::Separator();
+
+            Process activeApp = tracker.getFocusedProcess();
+            ImGui::Text("Currently Focused PID: %lu", activeApp.getPid());
+            ImGui::Text("Currently Focused Name: %s", activeApp.getProcessName().c_str());
+            ImGui::Text("Currently Focused Path: %s", activeApp.getLogFileName().c_str());
+            ImGui::Text("Currently Focused Path: %s", activeApp.getPathName().c_str());
+            ImGui::Text("Active Time Today: %llu seconds", activeApp.getTodayTime());
+            ImGui::Text("Background Time Today: %llu seconds", activeApp.getBackgroundTodayTime());
+
+            ImGui::Separator();
+
+            if (ImGui::Button("Settings")) {
+                show_settings_window = true;
+            }
+
+            ImGui::SameLine(0.0f, 1.0f);
+
+            if (ImGui::Button("Credits")) {
+                show_credits_window = true;
+            }
+
+
+
+            ImGui::PopStyleVar();
             ImGui::End();
+
+
+
+            //We need them static so that they don't change each frame
+            static bool init_settings = false;
+            static int temp_timeBefore = 300;
+            static int temp_secsBeforeVideo = 600;
+            static bool temp_videoMode = false;
+            static char* temp_providers_buffer = nullptr;
+            static int current_buffer_size = 0;
+            if (show_settings_window)
+            {
+                ImGui::SetNextWindowSize(ImVec2(400.0f, 200.0f), ImGuiCond_FirstUseEver);
+                if (ImGui::Begin("Settings", &show_settings_window))
+                {
+                    if (ImGui::Checkbox("Launch at Windows Startup", &g_RunStartup))
+                    {
+                        RunAtStartup(g_RunStartup);
+                    }
+                    ImGui::Text("Recommended to keep on for accurate tracking since startup, doesn't need apply to save");
+
+                    ImGui::Separator();
+                    ImGui::Text("Program Settings, Apply to save them!");
+                    if (!init_settings) { //we do this to load the globals if anything important has changed
+                        temp_timeBefore = timeBeforeTimeOut;
+                        temp_secsBeforeVideo = secsBeforeVideoTimeOut;
+                        temp_videoMode = videoModeEnabled;
+                        //load the multimedia providers as well
+
+
+                        //minimum characters needed to show the providers
+                        int charCount = 0;
+                        for (int i = 0; i < numOfMultimediaProviders; i++) {
+
+                            charCount += multimediaProviders[i].length() + 1; //+1 for the /n 
+                        }
+
+                        if (charCount <= 21666) {
+                            charCount += 65536;
+
+                        }
+                        else {
+                            charCount *= 4; //minimum 4 times the ones already on the provider list
+                        }
+                        //jic delete a previous buffer if there was any
+                        delete[] temp_providers_buffer;
+
+
+                        current_buffer_size = charCount;
+                        temp_providers_buffer = new char[charCount];
+
+                        temp_providers_buffer[0] = '\0';
+                        for (int i = 0; i < numOfMultimediaProviders; i++) {
+                            strcat_s(temp_providers_buffer, current_buffer_size, multimediaProviders[i].c_str());
+                            strcat_s(temp_providers_buffer, current_buffer_size, "\n"); //Adds each provider + the /c
+                        }
+                        init_settings = true;
+                    }
+                    ImGui::InputInt("Global Timeout (secs)", &temp_timeBefore);
+                    ImGui::InputInt("Video Timeout (secs)", &temp_secsBeforeVideo);
+                    ImGui::Text("Video Timeout only works if Video Mode is Enabled");
+                    ImGui::Checkbox("Enable Video Mode", &temp_videoMode);
+
+                    ImGui::Text("Multimedia Providers (Enter for new entry):");
+                    ImGui::InputTextMultiline("##Providers", temp_providers_buffer, current_buffer_size, ImVec2(-FLT_MIN, 150.0f));
+                    ImGui::Dummy(ImVec2(0.0f, 10.0f));
+                    if (ImGui::Button("Apply (Restarts)"))
+                    {
+                        //save temp to globals
+                        timeBeforeTimeOut = temp_timeBefore;
+                        secsBeforeVideoTimeOut = temp_secsBeforeVideo;
+                        videoModeEnabled = temp_videoMode;
+
+                        string curr = "";
+                        int count = 0;
+                        int currString = 0;
+                        //istringstream makes us able to treat the char array as if it were a file stream so we can getline it automatically gives us lines separated by the \n and obbv the stopper \0
+                        istringstream stream(temp_providers_buffer);
+                        while (getline(stream, curr)) { //Returns false when no more lines to read
+                            count++;
+                        }
+
+                        delete[] multimediaProviders;
+                        multimediaProviders = new string[count];
+
+                        //Resets the stream to the beginning b4 \0
+                        stream.clear();
+                        stream.seekg(0);
+
+                        while (getline(stream, curr)) { //Returns false when no more lines to read
+
+                            if (!curr.empty() && curr.back() == '\r') curr.pop_back(); //Carriage returns blocker 
+
+                            multimediaProviders[currString] = curr;
+                            currString++;
+                        }
+
+
+
+
+                        numOfMultimediaProviders = count;
+                        SaveSettingsFile(multimediaProviders);
+                        //Releases the mutex
+                        ReleaseMutex(hMutex);
+                        CloseHandle(hMutex);
+
+
+                        wchar_t exePath[MAX_PATH];
+                        GetModuleFileNameW(nullptr, exePath, MAX_PATH); //gets the exe path for the program
+                        ShellExecuteW(nullptr, L"open", exePath, nullptr, nullptr, SW_SHOW); //Runs it, by the time the program has saved and close this other instance will have opened
+
+                        done = true;
+                    }
+
+
+                }
+                ImGui::End();
+            }
+            else
+            {
+                // reset flag if user pressed x instead of apply
+                init_settings = false;
+            }
+
+
+
+
+
+            //credits window
+            if (show_credits_window)
+            {
+                // size for next window
+                ImGui::SetNextWindowSize(ImVec2(400.0f, 200.0f), ImGuiCond_FirstUseEver);
+
+                // Begin the window, passing the boolean so the "X" button on it actually closes it
+                if (ImGui::Begin("Credits", &show_credits_window))
+                {
+                    ImGui::Text("Program Time Tracker v1.0.0");
+                    ImGui::Separator();
+                    ImGui::Text("Created by: Ulises Romero López ");
+                    ImGui::SameLine(0.0f, 1.0f);
+
+                    if (ImGui::SmallButton("WebPage"))
+                    {
+                        // Opens the URL in the default browser
+                        ShellExecuteW(nullptr, L"open", L"https://ulis.es", nullptr, nullptr, SW_SHOWNORMAL);
+                    }
+                    ImGui::SameLine(0.0f, 1.0f);
+                    if (ImGui::SmallButton("GitHub"))
+                    {
+                        // Opens the URL in the default browser
+                        ShellExecuteW(nullptr, L"open", L"https://github.com/UlisesDeveloper", nullptr, nullptr, SW_SHOWNORMAL);
+                    }
+
+                    ImGui::Text("Built with C++, Win32 API & Dear ImGui.");
+                    ImGui::Text("Icon by Google (Apache 2.0 License)");
+                    ImGui::SameLine(0.0f, 1.0f);
+                    if (ImGui::SmallButton("->##icon_link"))
+                    {
+                        // Opens the URL in the default browser
+                        ShellExecuteW(nullptr, L"open", L"https://www.iconarchive.com/show/noto-emoji-travel-places-icons-by-google/42608-stopwatch-icon.html", nullptr, nullptr, SW_SHOWNORMAL);
+                    }
+
+                    ImGui::Dummy(ImVec2(0.0f, 20.0f));
+
+                    if (ImGui::Button("GitHub Repo")) {
+                        ShellExecuteW(nullptr, L"open", L"https://github.com/UlisesDeveloper/ProgramTimeTracker", nullptr, nullptr, SW_SHOWNORMAL);
+                    }
+
+                    /*
+                    if (ImGui::Button("Close")) {
+                        show_credits_window = false;
+                    }
+                    */
+                }
+                ImGui::End();
+            }
+
+            // Rendering
+            ImGui::Render();
+            const float clear_color_with_alpha[4] = { clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w };
+            g_pd3dDeviceContext->OMSetRenderTargets(1, &g_mainRenderTargetView, nullptr);
+            g_pd3dDeviceContext->ClearRenderTargetView(g_mainRenderTargetView, clear_color_with_alpha);
+            ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+
+            // Present
+            HRESULT hr = g_pSwapChain->Present(1, 0);   // Present with vsync
+            //HRESULT hr = g_pSwapChain->Present(0, 0); // Present without vsync
+            g_SwapChainOccluded = (hr == DXGI_STATUS_OCCLUDED);
         }
 
-        // Rendering
-        ImGui::Render();
-        const float clear_color_with_alpha[4] = { clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w };
-        g_pd3dDeviceContext->OMSetRenderTargets(1, &g_mainRenderTargetView, nullptr);
-        g_pd3dDeviceContext->ClearRenderTargetView(g_mainRenderTargetView, clear_color_with_alpha);
-        ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+        // Cleanup
+        ImGui_ImplDX11_Shutdown();
+        ImGui_ImplWin32_Shutdown();
+        ImGui::DestroyContext();
 
-        // Present
-        HRESULT hr = g_pSwapChain->Present(1, 0);   // Present with vsync
-        //HRESULT hr = g_pSwapChain->Present(0, 0); // Present without vsync
-        g_SwapChainOccluded = (hr == DXGI_STATUS_OCCLUDED);
+        CleanupDeviceD3D();
+        ::DestroyWindow(hwnd);
+        ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
+
+
+        // Remove Tray Icon on exit
+        Shell_NotifyIconW(NIM_DELETE, &s_NID);
+        return 0;
     }
-
-    // Cleanup
-    ImGui_ImplDX11_Shutdown();
-    ImGui_ImplWin32_Shutdown();
-    ImGui::DestroyContext();
-
-    CleanupDeviceD3D();
-    ::DestroyWindow(hwnd);
-    ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
-
-
-    // Remove Tray Icon on exit
-    Shell_NotifyIconW(NIM_DELETE, &s_NID);
-    return 0;
+    catch (const std::exception& e) {
+        Shell_NotifyIconW(NIM_DELETE, &s_NID); //Removes tray icon before exiting
+        MessageBoxA(nullptr, e.what(), "Program Time Tracker - Error", MB_ICONERROR | MB_OK); //Error 
+        return -1;
+    }
 }
 
 // Helper functions
@@ -496,4 +739,98 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     }
     return ::DefWindowProcW(hWnd, msg, wParam, lParam);
 }
+
+
+
+
+void LoadSettingsFile() {
+    ifstream file("settings.txt");
+    if (file.is_open()) {
+
+        try {
+            //Format first timeBeforeTimeOut
+            //secsbeforevideotimeout
+            //videomodeenabled
+
+            //num Multimedia providers
+            //All multimedia providers from that point on
+            string curr = "";
+            getline(file, curr);
+            timeBeforeTimeOut = stoi(curr);
+            getline(file, curr);
+            secsBeforeVideoTimeOut = stoi(curr);
+            getline(file, curr); //1 is true 0 is false
+            videoModeEnabled = stoi(curr);
+
+            int prevNumMultimediaProv = numOfMultimediaProviders;
+            getline(file, curr);
+            numOfMultimediaProviders = stoi(curr);
+            if (numOfMultimediaProviders != prevNumMultimediaProv) {
+
+                delete[] multimediaProviders;
+                multimediaProviders = new string[numOfMultimediaProviders];
+            }
+
+            for (int i = 0; i < numOfMultimediaProviders; i++) {
+                getline(file, curr);
+                multimediaProviders[i] = curr;
+            }
+
+        }
+        catch (...) { //Catch exception that stoi may throw need to regenerate the file atp
+            SaveSettingsFile(multimediaProviders);
+            throw invalid_argument("stoi failed");
+        }
+
+
+        file.close();
+    }
+    else {
+        SaveSettingsFile(multimediaProviders);
+        throw invalid_argument("attempted to regenerate the settings file, try to reopen the program");
+    }
+}
+
+void SaveSettingsFile(string* multimProvWritten) { //when apply has been pressed
+    ofstream file("settings.txt");
+    if (file.is_open()) {
+        //Format first timeBeforeTimeOut
+        //secsbeforevideotimeout
+        //videomodeenabled
+
+        //num Multimedia providers
+        //All multimedia providers from that point on
+        file << timeBeforeTimeOut << endl;
+        file << secsBeforeVideoTimeOut << endl;
+        file << videoModeEnabled << endl;
+
+        //First should remove the garbage
+        int validCount = 0;
+        for (int i = 0; i < numOfMultimediaProviders; i++) {
+            
+            if (!(multimProvWritten[i].empty()) && !(multimProvWritten[i].find_first_not_of(" \t\n\v\f\r") == std::string::npos)) {
+                validCount++;
+            }
+        }
+
+        
+        //Then when it has been removed i can safely save it 
+        file << validCount << endl;
+        for (int i = 0; i < numOfMultimediaProviders; i++) {
+            if (!(multimProvWritten[i].empty()) && !(multimProvWritten[i].find_first_not_of(" \t\n\v\f\r") == std::string::npos)) {
+                file << multimProvWritten[i] << endl; //Double check so that i didn't remove the previous ones from the actual multimediaProviders, i am going to kill it regardless to apply the settings
+                //Even tho less efficient could be changing the array with a tempo one and then making that multimediaProviders and finally that is the one to be written
+            }
+        }
+        file.close();
+    }
+    else {
+        file.close();
+        throw invalid_argument("os rejected, replace it with the one on github");
+    }
+}
+
+
+//should do it that save to settings file is done when pressed apply and that the program is restarted
+
 
