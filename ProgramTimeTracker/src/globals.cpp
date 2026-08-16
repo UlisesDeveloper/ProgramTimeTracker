@@ -1,7 +1,9 @@
 #include "globals.h"
 #include "windows.h"
 
-//IMPLEMENT FILE WHERE GLOBALS ARE SAVED AND I CAN LOAD CONFIG EACH TIME THE PROGRAM IS STARTED CAUSE IF NOT IT'S RAM BASED
+
+bool antiProcrastination = false;
+
 
 int timeBeforeTimeOut = 300; //in secs unless the name specifies otherwise
 int secsBeforeVideoTimeOut = 600;
@@ -13,6 +15,7 @@ std::string* multimediaProviders = new std::string[10]{ "youtube", "Microsoft.Me
 
 
 bool g_RunStartup = true; //by default
+bool g_DebugMode = false;
 const wchar_t* REGISTRY_APP_NAME = L"ProgramTimeTracker";
 
 

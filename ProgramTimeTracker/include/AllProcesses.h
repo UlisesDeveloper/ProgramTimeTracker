@@ -66,6 +66,12 @@ public:
 	void resetDayTime();
 	void addTimeToSystemProcess(int a);
 
+	void resetTime(); //The files deletes all their data 
+
+
+	void getPathNameCurrentProcesses(string*& a, int& size) const; //automatically resizes the array to what is needed
+
+	bool getProcessFromPath(const string& path, const Process*& res) const;
 
 };
 

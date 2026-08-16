@@ -81,6 +81,8 @@ public:
 	void resetDayTime();
 
 
+	bool doesProcessHaveSamePath(const string& path) const;
+
 	
 	
 	

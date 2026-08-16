@@ -1,3 +1,4 @@
+1
 300
 600
 0
@@ -6,9 +7,10 @@ youtube
 Microsoft.Media.Player
 netflix
 vlc
-hulu
+hulu	
 prime video
 disney+
 apple tv
 twitch
 mpv
+1

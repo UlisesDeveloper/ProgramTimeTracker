@@ -275,6 +275,13 @@ void Process::resetDayTime() {
 	todayTime = backgroundTodayTime = 0;
 }
 
+
+bool Process::doesProcessHaveSamePath(const string& path) const {
+	return (pathName == path);
+}
+
+
+
 int yearFrom2026() {
 
 	time_t now = time(nullptr);

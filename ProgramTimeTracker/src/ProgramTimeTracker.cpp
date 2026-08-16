@@ -9,11 +9,16 @@
 #include "AllProcesses.h"
 #include "globals.h"
 #include "Process.h"
+#include "auxiliaryMainFunctions.h"
 #include <filesystem>
 #include <shellapi.h>
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
+
+
+#include "AntiProcrastinator_Window.h"
+#include "Settings_Window.h"
 
 
 //custom Windows message ID for tray interactions
@@ -45,8 +50,7 @@ void CleanupDeviceD3D();
 void CreateRenderTarget();
 void CleanupRenderTarget();
 LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
-void LoadSettingsFile();
-void SaveSettingsFile(string* multimProvWritten);
+
 
 
 // Main code
@@ -173,6 +177,9 @@ int main(int argc, char** argv)
         bool show_demo_window = true;
         bool show_credits_window = false;
         bool show_settings_window = false;
+        bool show_alias_window = false;
+        bool show_antiprocrastination_window = false;
+        bool show_add_entry_procrastination_window = false;
         bool show_another_window = false;
         ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
@@ -336,6 +343,13 @@ int main(int argc, char** argv)
             ImGui::Begin("Program Time Tracker v.1.0.0", nullptr, flags);
 
             ImGui::Text("Program Version: 1.0.0  ");
+
+
+            //ADD GIANT ICON LATER
+
+
+
+
             ImGui::SameLine(0.0f, 1.0f);
             ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.6f, 0.1f, 0.1f, 1.0f)); // red
             ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.8f, 0.2f, 0.2f, 1.0f)); //hover over
@@ -346,9 +360,10 @@ int main(int argc, char** argv)
             }
             ImGui::PopStyleColor(3);
 
-
-            if (ImGui::SmallButton("excpetion test")) {
-                throw out_of_range("marinero de los mares con las olas de cartulina");
+            if (g_DebugMode) {
+                if (ImGui::SmallButton("excpetion test")) {
+                    throw out_of_range("marinero de los mares con las olas de cartulina");
+                }
             }
 
             ImGui::Text("Tracking Engine: RUNNING");
@@ -385,11 +400,17 @@ int main(int argc, char** argv)
 
             ImGui::Separator();
 
+            if (ImGui::Button("Anti-Procrastinator")) {
+                show_antiprocrastination_window = true;
+            }
+            ImGui::SameLine(0.0f, 1.0f);
+            
+
             if (ImGui::Button("Settings")) {
                 show_settings_window = true;
             }
-
             ImGui::SameLine(0.0f, 1.0f);
+            
 
             if (ImGui::Button("Credits")) {
                 show_credits_window = true;
@@ -400,131 +421,9 @@ int main(int argc, char** argv)
             ImGui::PopStyleVar();
             ImGui::End();
 
+            AntiProcrastinationWindow(show_antiprocrastination_window, show_add_entry_procrastination_window, tracker, g_pd3dDevice);
 
-
-            //We need them static so that they don't change each frame
-            static bool init_settings = false;
-            static int temp_timeBefore = 300;
-            static int temp_secsBeforeVideo = 600;
-            static bool temp_videoMode = false;
-            static char* temp_providers_buffer = nullptr;
-            static int current_buffer_size = 0;
-            if (show_settings_window)
-            {
-                ImGui::SetNextWindowSize(ImVec2(400.0f, 200.0f), ImGuiCond_FirstUseEver);
-                if (ImGui::Begin("Settings", &show_settings_window))
-                {
-                    if (ImGui::Checkbox("Launch at Windows Startup", &g_RunStartup))
-                    {
-                        RunAtStartup(g_RunStartup);
-                    }
-                    ImGui::Text("Recommended to keep on for accurate tracking since startup, doesn't need apply to save");
-
-                    ImGui::Separator();
-                    ImGui::Text("Program Settings, Apply to save them!");
-                    if (!init_settings) { //we do this to load the globals if anything important has changed
-                        temp_timeBefore = timeBeforeTimeOut;
-                        temp_secsBeforeVideo = secsBeforeVideoTimeOut;
-                        temp_videoMode = videoModeEnabled;
-                        //load the multimedia providers as well
-
-
-                        //minimum characters needed to show the providers
-                        int charCount = 0;
-                        for (int i = 0; i < numOfMultimediaProviders; i++) {
-
-                            charCount += multimediaProviders[i].length() + 1; //+1 for the /n 
-                        }
-
-                        if (charCount <= 21666) {
-                            charCount += 65536;
-
-                        }
-                        else {
-                            charCount *= 4; //minimum 4 times the ones already on the provider list
-                        }
-                        //jic delete a previous buffer if there was any
-                        delete[] temp_providers_buffer;
-
-
-                        current_buffer_size = charCount;
-                        temp_providers_buffer = new char[charCount];
-
-                        temp_providers_buffer[0] = '\0';
-                        for (int i = 0; i < numOfMultimediaProviders; i++) {
-                            strcat_s(temp_providers_buffer, current_buffer_size, multimediaProviders[i].c_str());
-                            strcat_s(temp_providers_buffer, current_buffer_size, "\n"); //Adds each provider + the /c
-                        }
-                        init_settings = true;
-                    }
-                    ImGui::InputInt("Global Timeout (secs)", &temp_timeBefore);
-                    ImGui::InputInt("Video Timeout (secs)", &temp_secsBeforeVideo);
-                    ImGui::Text("Video Timeout only works if Video Mode is Enabled");
-                    ImGui::Checkbox("Enable Video Mode", &temp_videoMode);
-
-                    ImGui::Text("Multimedia Providers (Enter for new entry):");
-                    ImGui::InputTextMultiline("##Providers", temp_providers_buffer, current_buffer_size, ImVec2(-FLT_MIN, 150.0f));
-                    ImGui::Dummy(ImVec2(0.0f, 10.0f));
-                    if (ImGui::Button("Apply (Restarts)"))
-                    {
-                        //save temp to globals
-                        timeBeforeTimeOut = temp_timeBefore;
-                        secsBeforeVideoTimeOut = temp_secsBeforeVideo;
-                        videoModeEnabled = temp_videoMode;
-
-                        string curr = "";
-                        int count = 0;
-                        int currString = 0;
-                        //istringstream makes us able to treat the char array as if it were a file stream so we can getline it automatically gives us lines separated by the \n and obbv the stopper \0
-                        istringstream stream(temp_providers_buffer);
-                        while (getline(stream, curr)) { //Returns false when no more lines to read
-                            count++;
-                        }
-
-                        delete[] multimediaProviders;
-                        multimediaProviders = new string[count];
-
-                        //Resets the stream to the beginning b4 \0
-                        stream.clear();
-                        stream.seekg(0);
-
-                        while (getline(stream, curr)) { //Returns false when no more lines to read
-
-                            if (!curr.empty() && curr.back() == '\r') curr.pop_back(); //Carriage returns blocker 
-
-                            multimediaProviders[currString] = curr;
-                            currString++;
-                        }
-
-
-
-
-                        numOfMultimediaProviders = count;
-                        SaveSettingsFile(multimediaProviders);
-                        //Releases the mutex
-                        ReleaseMutex(hMutex);
-                        CloseHandle(hMutex);
-
-
-                        wchar_t exePath[MAX_PATH];
-                        GetModuleFileNameW(nullptr, exePath, MAX_PATH); //gets the exe path for the program
-                        ShellExecuteW(nullptr, L"open", exePath, nullptr, nullptr, SW_SHOW); //Runs it, by the time the program has saved and close this other instance will have opened
-
-                        done = true;
-                    }
-
-
-                }
-                ImGui::End();
-            }
-            else
-            {
-                // reset flag if user pressed x instead of apply
-                init_settings = false;
-            }
-
-
-
+            SettingsWindow(show_settings_window, show_alias_window, tracker, hMutex, done);
 
 
             //credits window
@@ -742,95 +641,5 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
 
 
-
-void LoadSettingsFile() {
-    ifstream file("settings.txt");
-    if (file.is_open()) {
-
-        try {
-            //Format first timeBeforeTimeOut
-            //secsbeforevideotimeout
-            //videomodeenabled
-
-            //num Multimedia providers
-            //All multimedia providers from that point on
-            string curr = "";
-            getline(file, curr);
-            timeBeforeTimeOut = stoi(curr);
-            getline(file, curr);
-            secsBeforeVideoTimeOut = stoi(curr);
-            getline(file, curr); //1 is true 0 is false
-            videoModeEnabled = stoi(curr);
-
-            int prevNumMultimediaProv = numOfMultimediaProviders;
-            getline(file, curr);
-            numOfMultimediaProviders = stoi(curr);
-            if (numOfMultimediaProviders != prevNumMultimediaProv) {
-
-                delete[] multimediaProviders;
-                multimediaProviders = new string[numOfMultimediaProviders];
-            }
-
-            for (int i = 0; i < numOfMultimediaProviders; i++) {
-                getline(file, curr);
-                multimediaProviders[i] = curr;
-            }
-
-        }
-        catch (...) { //Catch exception that stoi may throw need to regenerate the file atp
-            SaveSettingsFile(multimediaProviders);
-            throw invalid_argument("stoi failed");
-        }
-
-
-        file.close();
-    }
-    else {
-        SaveSettingsFile(multimediaProviders);
-        throw invalid_argument("attempted to regenerate the settings file, try to reopen the program");
-    }
-}
-
-void SaveSettingsFile(string* multimProvWritten) { //when apply has been pressed
-    ofstream file("settings.txt");
-    if (file.is_open()) {
-        //Format first timeBeforeTimeOut
-        //secsbeforevideotimeout
-        //videomodeenabled
-
-        //num Multimedia providers
-        //All multimedia providers from that point on
-        file << timeBeforeTimeOut << endl;
-        file << secsBeforeVideoTimeOut << endl;
-        file << videoModeEnabled << endl;
-
-        //First should remove the garbage
-        int validCount = 0;
-        for (int i = 0; i < numOfMultimediaProviders; i++) {
-            
-            if (!(multimProvWritten[i].empty()) && !(multimProvWritten[i].find_first_not_of(" \t\n\v\f\r") == std::string::npos)) {
-                validCount++;
-            }
-        }
-
-        
-        //Then when it has been removed i can safely save it 
-        file << validCount << endl;
-        for (int i = 0; i < numOfMultimediaProviders; i++) {
-            if (!(multimProvWritten[i].empty()) && !(multimProvWritten[i].find_first_not_of(" \t\n\v\f\r") == std::string::npos)) {
-                file << multimProvWritten[i] << endl; //Double check so that i didn't remove the previous ones from the actual multimediaProviders, i am going to kill it regardless to apply the settings
-                //Even tho less efficient could be changing the array with a tempo one and then making that multimediaProviders and finally that is the one to be written
-            }
-        }
-        file.close();
-    }
-    else {
-        file.close();
-        throw invalid_argument("os rejected, replace it with the one on github");
-    }
-}
-
-
-//should do it that save to settings file is done when pressed apply and that the program is restarted
 
 

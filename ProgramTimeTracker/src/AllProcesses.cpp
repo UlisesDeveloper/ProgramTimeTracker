@@ -392,6 +392,71 @@ void AllProcesses::addTimeToSystemProcess(int a) {
 }
 
 
+void AllProcesses::resetTime() {
+    for (int i = 0; i < numProcesses; i++) {
+        currentProcessList[i].ResetTime();
+    }
+}
+
+
+void AllProcesses::getPathNameCurrentProcesses(string*& a, int& size) const{
+    
+    int count = 0;
+    for (int i = 0; i < numProcesses; i++) {
+        bool alreadyListed = false;
+
+        for (int j = 0; j < i; j++) {
+            if (currentProcessList[i].pathName == currentProcessList[j].pathName) {
+                alreadyListed = true;
+                break;
+            }
+        }
+
+        if (!alreadyListed) {
+            count++;
+        }
+    }
+    
+    size = count;
+    delete[] a;
+    a = new string[size];
+    int index = 0; //one that doesn't get affected by the skipping of alreadyListed
+    for (int i = 0; i < size; i++) {
+        bool alreadyListed = false;
+
+        for (int j = 0; j < i; j++) {
+            if (currentProcessList[i].pathName == currentProcessList[j].pathName) {
+                alreadyListed = true;
+                break;
+            }
+        }
+
+
+        if (!alreadyListed) {
+            a[index] = currentProcessList[i].getPathName();
+            index++;
+        }
+        
+    }
+   
+}
+
+
+bool AllProcesses::getProcessFromPath(const string& path, const Process*& res) const { //better have 2 parameters and it be a bool where it falses if it couldn't find that path first the apth second the process (that get's returned if it's true ofc)
+    bool result = false;
+    for (int i = 0; i < numProcesses; i++) {
+        if (currentProcessList[i].doesProcessHaveSamePath(path)) {
+            result = true;
+            res = &(currentProcessList[i]);
+            break; //To avoid wasting cycles in the for loop
+        }
+    }
+    return result;
+}
+
+
+
+
 
 void DeletePID(int pos, size_t &total, DWORD* array) {
 

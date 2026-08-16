@@ -20,9 +20,12 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\AllProcesses.h" />
+    <ClInclude Include="include\AntiProcrastinator_Window.h" />
+    <ClInclude Include="include\auxiliaryMainFunctions.h" />
     <ClInclude Include="include\globals.h" />
     <ClInclude Include="include\Process.h" />
     <ClInclude Include="include\resource.h" />
+    <ClInclude Include="include\Settings_Window.h" />
     <ClInclude Include="resource.h" />
   </ItemGroup>
   <ItemGroup>
@@ -34,9 +37,12 @@
     <ClCompile Include="dependencies\imgui\imgui_tables.cpp" />
     <ClCompile Include="dependencies\imgui\imgui_widgets.cpp" />
     <ClCompile Include="src\AllProcesses.cpp" />
+    <ClCompile Include="src\AntiProcrastinator_Window.cpp" />
+    <ClCompile Include="src\auxiliaryMainFunctions.cpp" />
     <ClCompile Include="src\globals.cpp" />
     <ClCompile Include="src\Process.cpp" />
     <ClCompile Include="src\ProgramTimeTracker.cpp" />
+    <ClCompile Include="src\Settings_Window.cpp" />
     <ClCompile Include="src\trackingLogic.cpp" />
   </ItemGroup>
   <ItemGroup>
