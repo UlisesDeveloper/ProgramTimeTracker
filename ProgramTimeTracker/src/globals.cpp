@@ -1,8 +1,11 @@
 #include "globals.h"
 #include "windows.h"
 
+//Flags not save in file ts is for execution
 
-bool antiProcrastination = false;
+bool hasRestrictionsChanged = false;
+
+//SETTINGS WINDOW GLOBALS
 
 
 int timeBeforeTimeOut = 300; //in secs unless the name specifies otherwise
@@ -17,6 +20,17 @@ std::string* multimediaProviders = new std::string[10]{ "youtube", "Microsoft.Me
 bool g_RunStartup = true; //by default
 bool g_DebugMode = false;
 const wchar_t* REGISTRY_APP_NAME = L"ProgramTimeTracker";
+
+
+
+//ANTIPROCRASTINATION WINDOW GLOBALS
+bool antiProcrastination = false;
+
+bool snooze = false;
+int snoozeMins = 5;
+bool killAfterSnooze = false;
+
+
 
 
 

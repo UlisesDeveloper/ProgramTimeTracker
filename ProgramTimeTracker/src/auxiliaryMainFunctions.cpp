@@ -15,8 +15,6 @@ void LoadSettingsFile() {
             //All multimedia providers from that point on
             string curr = "";
             getline(file, curr);
-            antiProcrastination = stoi(curr);
-            getline(file, curr);
             timeBeforeTimeOut = stoi(curr);
             getline(file, curr);
             secsBeforeVideoTimeOut = stoi(curr);
@@ -39,6 +37,17 @@ void LoadSettingsFile() {
 
             getline(file, curr); 
             g_DebugMode = stoi(curr);
+
+
+            getline(file, curr);
+            antiProcrastination = stoi(curr);
+            getline(file, curr);
+            snooze = stoi(curr);
+            getline(file, curr);
+            snoozeMins = stoi(curr);
+            getline(file, curr);
+            killAfterSnooze = stoi(curr);
+
 
 
         }
@@ -65,7 +74,6 @@ void SaveSettingsFile(string* multimProvWritten) { //when apply has been pressed
 
         //num Multimedia providers
         //All multimedia providers from that point on
-        file << antiProcrastination << endl;
         file << timeBeforeTimeOut << endl;
         file << secsBeforeVideoTimeOut << endl;
         file << videoModeEnabled << endl;
@@ -90,7 +98,16 @@ void SaveSettingsFile(string* multimProvWritten) { //when apply has been pressed
         }
 
 
+
         file << g_DebugMode << endl;
+
+
+        file << antiProcrastination << endl;
+        file << snooze << endl;
+        file << snoozeMins << endl;
+        file << killAfterSnooze << endl;
+
+
         file.close();
     }
     else {

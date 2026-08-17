@@ -15,6 +15,8 @@
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
+#include <shlobj.h>
+#include <unordered_map>
 
 
 #include "AntiProcrastinator_Window.h"
@@ -52,11 +54,15 @@ void CleanupRenderTarget();
 LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 
+void exceedLimitNotification(const Process& a, bool killed = false);
+
 
 // Main code
 int main(int argc, char** argv)
 {
     try {
+        //Assign usermodelid cause window hates portable exe sending notifications
+        SetCurrentProcessExplicitAppUserModelID(L"UlisesDev.ProgramTimeTracker");
 
         HANDLE hMutex = CreateMutexW(NULL, TRUE, L"ProgramTimeTracker_MUTEX");
         if (GetLastError() == ERROR_ALREADY_EXISTS)
@@ -131,9 +137,10 @@ int main(int argc, char** argv)
         s_NID.uID = ID_TRAY_ICON;
         s_NID.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
         s_NID.uCallbackMessage = WM_APP_TRAYMSG;
-        s_NID.hIcon = customIcon; // Uses your loaded HICON from earlier!
+        s_NID.hIcon = customIcon; 
         wcscpy_s(s_NID.szTip, L"Program Time Tracker");
         Shell_NotifyIconW(NIM_ADD, &s_NID);
+
 
         // Setup Dear ImGui context
         IMGUI_CHECKVERSION();
@@ -180,6 +187,7 @@ int main(int argc, char** argv)
         bool show_alias_window = false;
         bool show_antiprocrastination_window = false;
         bool show_add_entry_procrastination_window = false;
+        bool show_modify_entry_procrastination_window = false;
         bool show_another_window = false;
         ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
@@ -207,7 +215,7 @@ int main(int argc, char** argv)
         //AllProcesses tracker;
         //moved it to the top
         tracker.getOpenedProcesses();
-        cout << "starting";
+        //cout << "starting";
         bool stillUAC = false;
         int startDay = currDay();
         int timeSinceAutoSave = 0;
@@ -223,6 +231,15 @@ int main(int argc, char** argv)
         else {
             g_RunStartup = CheckIfRunsAtStartup();
         }
+
+
+        string* entries = nullptr;
+        int sizeEntriesArray = 0;
+
+        allEntryPathsProcrastinatorFile(entries, sizeEntriesArray);
+        int currentActiveProcessGlobalLimit = -1;
+        bool currentActiveProcessWeekEndLimitStatus = false;
+        int currentActiveProcessWeekEndLimit = -1;
 
 
 
@@ -265,6 +282,12 @@ int main(int argc, char** argv)
 
 
             //Code here
+            if (hasRestrictionsChanged) {
+                //acknowledge
+                allEntryPathsProcrastinatorFile(entries, sizeEntriesArray);
+                hasRestrictionsChanged = false;
+            }
+
             if (GetTickCount64() - lastTrackerTick >= 1000) { //This is the "Sleep" for a second thing
                 int idleTime = tracker.getIdleSecondsFocusedProcess(videoModeEnabled, secsBeforeVideoTimeOut); //Ts shouldn't take arguments they're globals
 
@@ -293,9 +316,86 @@ int main(int argc, char** argv)
                     tracker.getOpenedProcesses();
                     if (idleTime < timeBeforeTimeOut) {
                         //add 1 active time to active process
-                        //add 1 to background time to all
+                        //add 1 to background time to all background processes
                         tracker.addTimeActiveProcess(1);
                         tracker.addTimeBackgroundProcesses(1, false);
+
+
+
+                        //here is where i have to do my checks for antiprocrastination
+                        if (antiProcrastination) {
+                            
+
+                            //loadAntiProcrastinationDataFromDir(tracker.getFocusedProcess().getPathName(), currentActiveProcessGlobalLimit, currentActiveProcessWeekEndLimit, currentActiveProcessWeekEndLimitStatus);
+                            //need to use the array i created too much of an io penalty
+                            if (pathArrayPathInfoGetter(entries, sizeEntriesArray, tracker.getFocusedProcess().getPathName(), currentActiveProcessGlobalLimit, currentActiveProcessWeekEndLimit, currentActiveProcessWeekEndLimitStatus)) {
+
+                                uint64_t currentSecondsActive = tracker.getFocusedProcess().getTodayTime();
+                                uint64_t limitToEnforceInSecs = 0;
+
+
+                                static string snoozedPath = ""; 
+
+                                if (entryExistsArray(entries, sizeEntriesArray, tracker.getFocusedProcess().getPathName())) {
+                                    if (isWeekEnd() && currentActiveProcessWeekEndLimitStatus) {
+                                        limitToEnforceInSecs = currentActiveProcessWeekEndLimit * 60; //transform to secs
+                                    }
+                                    else {
+                                        limitToEnforceInSecs = currentActiveProcessGlobalLimit * 60; //transform to secs
+                                    }
+
+
+                                    if (currentSecondsActive >= limitToEnforceInSecs ) {
+
+
+                                        string currentPath = tracker.getFocusedProcess().getPathName();
+
+                                        //dictionary seems good
+                                        static unordered_map<string, uint64_t> appSnoozeExpirations;
+
+                                        //check if app is in the map
+                                        if (appSnoozeExpirations.find(currentPath) == appSnoozeExpirations.end() || currentSecondsActive >= appSnoozeExpirations[currentPath]) {
+                                            //only possible if second condition is true, != not end so it found something 
+                                            bool isSnoozeRunningOut = (appSnoozeExpirations.find(currentPath) != appSnoozeExpirations.end());
+
+                                            if (isSnoozeRunningOut && killAfterSnooze) {
+                                                //snooze runned out 
+                                                
+                                                tracker.saveTime(); //save time so the active time can get saved mostly for low minutes
+
+                                                HANDLE hProcess = OpenProcess(PROCESS_TERMINATE, FALSE, tracker.getFocusedProcess().getPid());
+                                                if (hProcess != NULL) {
+                                                    exceedLimitNotification(tracker.getFocusedProcess(), true);
+                                                    TerminateProcess(hProcess, 0);
+                                                    CloseHandle(hProcess);
+                                                }
+
+                                                //timer up so if they reopen it gets rekilled
+                                                appSnoozeExpirations[currentPath] = 1;
+
+                                            }
+                                            else {
+
+                                                exceedLimitNotification(tracker.getFocusedProcess(), false);
+
+                                                if (snooze) {
+                                                    appSnoozeExpirations[currentPath] = currentSecondsActive + (snoozeMins * 60);
+
+                                                    
+                                                }
+                                                else {
+
+                                                    appSnoozeExpirations[currentPath] = currentSecondsActive + 999999;
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                }
+                            }
+                        }
+
+
 
                     }
                     else {
@@ -361,9 +461,14 @@ int main(int argc, char** argv)
             ImGui::PopStyleColor(3);
 
             if (g_DebugMode) {
-                if (ImGui::SmallButton("excpetion test")) {
+                if (ImGui::SmallButton("excepetion test")) {
                     throw out_of_range("marinero de los mares con las olas de cartulina");
                 }
+                ImGui::SameLine(0.0f, 1.0f);
+                if (ImGui::SmallButton("graceful exit")) {
+                    exit(0);
+                }
+
             }
 
             ImGui::Text("Tracking Engine: RUNNING");
@@ -421,7 +526,7 @@ int main(int argc, char** argv)
             ImGui::PopStyleVar();
             ImGui::End();
 
-            AntiProcrastinationWindow(show_antiprocrastination_window, show_add_entry_procrastination_window, tracker, g_pd3dDevice);
+            AntiProcrastinationWindow(show_antiprocrastination_window, show_add_entry_procrastination_window, show_modify_entry_procrastination_window, tracker, g_pd3dDevice, hMutex, done);
 
             SettingsWindow(show_settings_window, show_alias_window, tracker, hMutex, done);
 
@@ -533,7 +638,9 @@ bool CreateDeviceD3D(HWND hWnd)
     sd.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
 
     UINT createDeviceFlags = 0;
-    //createDeviceFlags |= D3D11_CREATE_DEVICE_DEBUG;
+    #ifdef _DEBUG
+    createDeviceFlags |= D3D11_CREATE_DEVICE_DEBUG;
+    #endif
     D3D_FEATURE_LEVEL featureLevel;
     const D3D_FEATURE_LEVEL featureLevelArray[2] = { D3D_FEATURE_LEVEL_11_0, D3D_FEATURE_LEVEL_10_0, };
     HRESULT res = D3D11CreateDeviceAndSwapChain(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, createDeviceFlags, featureLevelArray, 2, D3D11_SDK_VERSION, &sd, &g_pSwapChain, &g_pd3dDevice, &featureLevel, &g_pd3dDeviceContext);
@@ -641,5 +748,65 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
 
 
+void exceedLimitNotification(const Process& a, bool killed) {
+    // extract icon to show
+    HICON hTargetIcon = nullptr;
+    ExtractIconExA(a.getPathName().c_str(), 0, &hTargetIcon, nullptr, 1);
 
+    MessageBeep(MB_ICONASTERISK);
+
+    //configuration of notif
+    s_NID.uFlags = NIF_INFO | NIF_ICON | NIF_MESSAGE | NIF_TIP;
+    wcscpy_s(s_NID.szInfoTitle, L"Anti-Procrastinator");
+    //needs wide arrays
+    
+
+    /**
+    if (hTargetIcon != nullptr) {
+        //use icon instead of warning
+        s_NID.dwInfoFlags = NIIF_USER | NIIF_LARGE_ICON;
+        s_NID.hBalloonIcon = hTargetIcon;
+    }
+    else {
+    */
+        // yellow triangle fallback if no icon
+    if (killed) {
+        string narrowName = a.getProcessName();
+        wstring wideName(narrowName.begin(), narrowName.end()); //basically get the normal array and call a constructor
+
+        wstring finalMessage = wideName + L" got killed after it exceeded first snooze notification";
+
+
+        wcscpy_s(s_NID.szInfo, finalMessage.c_str());
+
+        s_NID.dwInfoFlags = NIIF_ERROR | NIIF_LARGE_ICON;
+        s_NID.hBalloonIcon = nullptr;
+    }
+    else {
+        string narrowName = a.getProcessName();
+        wstring wideName(narrowName.begin(), narrowName.end()); //basically get the normal array and call a constructor
+
+        wstring finalMessage = L"Time's up! You have exceeded your limit for " + wideName;
+
+
+        wcscpy_s(s_NID.szInfo, finalMessage.c_str());
+
+        s_NID.dwInfoFlags = NIIF_USER | NIIF_LARGE_ICON;
+        s_NID.hBalloonIcon = nullptr;
+    }
+    
+    /*
+    }
+    */
+    
+
+    // notif send
+    Shell_NotifyIconW(NIM_MODIFY, &s_NID);
+
+    
+
+    if (hTargetIcon != nullptr) {
+        DestroyIcon(hTargetIcon);
+    }
+}
 

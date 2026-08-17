@@ -326,6 +326,20 @@ int currYear() {
 }
 
 
+
+bool isWeekEnd() {
+	bool res = false;
+	time_t now = time(nullptr);
+	tm local;
+	localtime_s(&local, &now);
+
+	if (local.tm_wday == 0 || local.tm_wday == 6) { //tm.wday returns day of week us format so 0 is sunday and saturday is 6
+		res = true;
+	}
+	return res;
+}
+
+
 void appendCurrentDateToFile(string fileName, const Process& a) {
 	ofstream file(fileName, std::ios::app); //append mode 
 	if (!(file.is_open())) {

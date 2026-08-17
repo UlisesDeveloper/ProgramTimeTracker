@@ -105,6 +105,8 @@ int currMonth();
 
 int currYear();
 
+bool isWeekEnd();
+
 void appendCurrentDateToFile(string fileName, const Process& a);
 
 
