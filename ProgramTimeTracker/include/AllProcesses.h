@@ -12,6 +12,7 @@
 #include <psapi.h>
 #include "Process.h"
 #include "globals.h"
+#include "auxiliaryMainFunctions.h"
 //#include <TlHelp32.h>
 //#include <shellapi.h> // eventually for icon
 

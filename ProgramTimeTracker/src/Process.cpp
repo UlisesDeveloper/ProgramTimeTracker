@@ -264,7 +264,7 @@ void Process::saveTime() {
 		}
 	}
 	else {
-		throw invalid_argument("file couldn't open");
+		throw invalid_argument("file couldn't open in savetime" + logFileName);
 	}
 
 
@@ -343,7 +343,7 @@ bool isWeekEnd() {
 void appendCurrentDateToFile(string fileName, const Process& a) {
 	ofstream file(fileName, std::ios::app); //append mode 
 	if (!(file.is_open())) {
-		throw invalid_argument("file couldn't open");
+		throw invalid_argument("file couldn't open in appendcurrentdatetofile" + fileName);
 	}
 
 	file << currDay() << '/' << currMonth() << '/' << currYear() << ':' << a.getTodayTime() << ':' << a.getBackgroundTodayTime() << endl; //Do the endl so always a date is added to the file append mode will be in the empty end line

@@ -421,7 +421,7 @@ void AllProcesses::getPathNameCurrentProcesses(string*& a, int& size) const{
     delete[] a;
     a = new string[size];
     int index = 0; //one that doesn't get affected by the skipping of alreadyListed
-    for (int i = 0; i < size; i++) {
+    for (int i = 0; i < numProcesses; i++) {
         bool alreadyListed = false;
 
         for (int j = 0; j < i; j++) {
@@ -643,7 +643,7 @@ void getMetadataForPids(pidList& pidLs, AllProcesses& allP) {
 
                 //get full name from it
                 string processName(bufferChar, bufferCharSize); //we initialize the string with the constructor with an array pointer and it's size
-                string pathName = processName;
+                string originalPath = processName;
                 //rfind is the same as a find but reverse
                 size_t posLastSlash = processName.rfind('\\'); //using \ as escape and then the actual char
 
@@ -652,22 +652,27 @@ void getMetadataForPids(pidList& pidLs, AllProcesses& allP) {
                 }
                 processName = processName.substr(posLastSlash + 1); //includes exe
 
-                //shoud have at this point a PID with a good processName
 
-                if (processName.rfind('.') == std::string::npos) {
-                    //has no extension weird
-                    string fullFilePath = "logs/" + processName + ".pttl";
-                    Process temp(fullFilePath, pidLs.pids[i], processName, pathName);
+                if (processName == "ApplicationFrameHost.exe") { //uwp wrapper checker 
+                    DeletePID(i, pidLs.count, pidLs.pids);
+                    i--;
+                }
+                else { //non uwp wrapper
+                    string id = getStableTrackerID(originalPath, processName); //Gives uwp_ suffix if it's a uwp
+                    string fullFilePath = "logs/" + sanitizePathForFileName(id);
+
+                    string displayName = processName; //Remove extension for display name
+                    if (displayName.rfind('.') != std::string::npos) { //if couldn't it will just have the extension
+                        displayName = displayName.substr(0, displayName.rfind('.'));
+                    }
+
+                    Process temp(fullFilePath, pidLs.pids[i], displayName, id);
                     allP.addProcess(temp);
                 }
-                else {
-                    string processNameWOExtension = processName.substr(0,  processName.rfind('.'));
-                    string fullFilePath = "logs/" + processNameWOExtension + ".pttl";
-                    
-                    Process temp(fullFilePath, pidLs.pids[i], processNameWOExtension, pathName);
-                    allP.addProcess(temp);
-                }
-                //with this i think i have succesfully added the process
+
+
+
+               
 
 
 

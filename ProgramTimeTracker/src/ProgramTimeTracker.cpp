@@ -17,6 +17,7 @@
 #include <stdexcept>
 #include <shlobj.h>
 #include <unordered_map>
+#include "auxiliaryMainStatShower.h"
 
 
 #include "AntiProcrastinator_Window.h"
@@ -189,6 +190,9 @@ int main(int argc, char** argv)
         bool show_add_entry_procrastination_window = false;
         bool show_modify_entry_procrastination_window = false;
         bool show_another_window = false;
+
+        int selectedStat = 0; //Current stat selected 0 current 1 day 2 week 3 month 4 year
+
         ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
 
@@ -479,29 +483,33 @@ int main(int argc, char** argv)
 
             ImGui::Separator();
             if (ImGui::Button("Current")) {
+                selectedStat = 0;
             }
             ImGui::SameLine(0.0f, 1.0f);
             if (ImGui::Button("Day")) {
+                selectedStat = 1;
             }
             ImGui::SameLine(0.0f, 1.0f);
             if (ImGui::Button("Week")) {
+                selectedStat = 2;
             }
             ImGui::SameLine(0.0f, 1.0f);
             if (ImGui::Button("Month")) {
+                selectedStat = 3;
             }
             ImGui::SameLine(0.0f, 1.0f);
             if (ImGui::Button("Year")) {
+                selectedStat = 4;
             }
-
+            ImGui::SameLine(0.0f, 1.0f);
+            if (ImGui::Button("All Time")) {
+                selectedStat = 5;
+            }
+            ImGui::SameLine(0.0f, 1.0f);
+            ImGui::Text(" NOTICE: uwp/ms store apps are problematic for icon retrieval even more when they're closed");
             ImGui::Separator();
 
-            Process activeApp = tracker.getFocusedProcess();
-            ImGui::Text("Currently Focused PID: %lu", activeApp.getPid());
-            ImGui::Text("Currently Focused Name: %s", activeApp.getProcessName().c_str());
-            ImGui::Text("Currently Focused Path: %s", activeApp.getLogFileName().c_str());
-            ImGui::Text("Currently Focused Path: %s", activeApp.getPathName().c_str());
-            ImGui::Text("Active Time Today: %llu seconds", activeApp.getTodayTime());
-            ImGui::Text("Background Time Today: %llu seconds", activeApp.getBackgroundTodayTime());
+            statsShower(tracker, selectedStat, g_pd3dDevice);
 
             ImGui::Separator();
 
@@ -567,6 +575,11 @@ int main(int argc, char** argv)
                     }
 
                     ImGui::Dummy(ImVec2(0.0f, 20.0f));
+
+                    if (ImGui::Button("Codeberg Repo")) {
+                        ShellExecuteW(nullptr, L"open", L"https://codeberg.org/UlisesDev/ProgramTimeTracker", nullptr, nullptr, SW_SHOWNORMAL);
+                    }
+                    ImGui::SameLine(0.0f, 1.0f);
 
                     if (ImGui::Button("GitHub Repo")) {
                         ShellExecuteW(nullptr, L"open", L"https://github.com/UlisesDeveloper/ProgramTimeTracker", nullptr, nullptr, SW_SHOWNORMAL);

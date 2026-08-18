@@ -1,5 +1,6 @@
 #include "auxiliaryMainFunctions.h"
 
+#include <string>
 
 
 void LoadSettingsFile() {
@@ -120,8 +121,11 @@ void SaveSettingsFile(string* multimProvWritten) { //when apply has been pressed
 //that second parameter because its defined in main and its static, so we need to pass it
 const ID3D11ShaderResourceView* showIconFromProcess(const Process& a, ID3D11Device* d3dDevice) {
    
+    string targetPath = getRealIconPath(a);
+
+
     HICON hIconLarge = nullptr;
-    UINT numIconExtracted = ExtractIconExA(a.getPathName().c_str(), 0, &hIconLarge, nullptr, 1);
+    UINT numIconExtracted = ExtractIconExA(targetPath.c_str(), 0, &hIconLarge, nullptr, 1);
 
     if (numIconExtracted = 0 || hIconLarge == nullptr) { //Safety check 
         return nullptr; //it makes sense to not do all that bullshit with directx if not i lose to much performance not worth the readability
@@ -235,6 +239,193 @@ const ID3D11ShaderResourceView* showIconFromProcess(const Process& a, ID3D11Devi
     return myIconTextureView;
 
 }
+
+
+string getRealIconPath(const Process& a) {
+    string targetPath = a.getPathName();
+
+    //if it's not an uwp_ we leave it as is
+    if (targetPath.length() >= 4 && targetPath.substr(0, 4) == "uwp_") {
+
+        // open process with the pid
+        HANDLE hProcess = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, a.getPid());
+
+        if (hProcess != NULL) {
+            char buffer[MAX_PATH];
+            DWORD size = MAX_PATH;
+
+            //get real path 
+            if (QueryFullProcessImageNameA(hProcess, 0, buffer, &size)) {
+                targetPath = string(buffer, size); //we have the real path.
+            }
+            else {
+                targetPath = "C:\\Windows\\System32\\ApplicationFrameHost.exe"; //fallback
+            }
+            CloseHandle(hProcess);
+        }
+        else {
+            targetPath = "C:\\Windows\\System32\\ApplicationFrameHost.exe";
+        }
+    }
+
+    return targetPath;
+}
+
+
+
+ID3D11ShaderResourceView* showIconFromPath(std::string targetPath, ID3D11Device* d3dDevice) {
+
+    if (targetPath.length() >= 4 && targetPath.substr(0, 4) == "uwp_") {
+        targetPath = "C:\\Windows\\System32\\ApplicationFrameHost.exe";
+    }
+
+    HICON hIconLarge = nullptr;
+    UINT numIconExtracted = ExtractIconExA(targetPath.c_str(), 0, &hIconLarge, nullptr, 1);
+
+    if (numIconExtracted == 0 || hIconLarge == nullptr) {
+        return nullptr;
+    }
+
+    
+
+    ICONINFO iconInformation;
+    if (!GetIconInfo(hIconLarge, &iconInformation)) {
+        DestroyIcon(hIconLarge);
+        return nullptr;
+    }
+
+    BITMAP infoHolder = {};
+    if (GetObject(iconInformation.hbmColor, sizeof(BITMAP), &infoHolder) == 0) {
+        if (iconInformation.hbmColor) DeleteObject(iconInformation.hbmColor);
+        if (iconInformation.hbmMask) DeleteObject(iconInformation.hbmMask);
+        DestroyIcon(hIconLarge);
+        return nullptr;
+    }
+
+    if (infoHolder.bmWidth <= 0 || infoHolder.bmHeight <= 0) {
+        DeleteObject(iconInformation.hbmColor);
+        DeleteObject(iconInformation.hbmMask);
+        DestroyIcon(hIconLarge);
+        return nullptr;
+    }
+
+    BYTE* pixelData = new BYTE[infoHolder.bmWidth * infoHolder.bmHeight * 4];
+    BITMAPINFO blueprint = {};
+    blueprint.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    blueprint.bmiHeader.biWidth = infoHolder.bmWidth;
+    blueprint.bmiHeader.biHeight = -infoHolder.bmHeight;
+    blueprint.bmiHeader.biPlanes = 1;
+    blueprint.bmiHeader.biBitCount = 32;
+    blueprint.bmiHeader.biCompression = BI_RGB;
+
+    HDC dcgetter = GetDC(nullptr);
+    GetDIBits(dcgetter, iconInformation.hbmColor, 0, infoHolder.bmHeight, pixelData, &(blueprint), DIB_RGB_COLORS);
+    ReleaseDC(nullptr, dcgetter);
+
+    DeleteObject(iconInformation.hbmColor);
+    DeleteObject(iconInformation.hbmMask);
+    DestroyIcon(hIconLarge);
+
+    ID3D11ShaderResourceView* myIconTextureView = nullptr;
+    ID3D11Texture2D* pTexture = nullptr;
+
+    D3D11_TEXTURE2D_DESC desc = {};
+    desc.Width = infoHolder.bmWidth;
+    desc.Height = infoHolder.bmHeight;
+    desc.MipLevels = 1;
+    desc.ArraySize = 1;
+    desc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+    desc.SampleDesc.Count = 1;
+    desc.Usage = D3D11_USAGE_DEFAULT;
+    desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+    desc.CPUAccessFlags = 0;
+
+    D3D11_SUBRESOURCE_DATA subResource = {};
+    subResource.pSysMem = pixelData;
+    subResource.SysMemPitch = desc.Width * 4;
+
+    HRESULT hr = (*d3dDevice).CreateTexture2D(&desc, &subResource, &pTexture);
+    if (SUCCEEDED(hr)) {
+        (*d3dDevice).CreateShaderResourceView(pTexture, nullptr, &myIconTextureView);
+        (*pTexture).Release();
+    }
+
+    delete[] pixelData;
+    return myIconTextureView;
+}
+
+
+
+//uwp + file name shenanigans
+
+
+string getStableTrackerID(const string& fullPath, const string& processName) { //We will refer to id if it's non uwp we will have the full path if not uwp prefix
+    string stablePath = fullPath; //it's supposed to be use so that we get the full path or the uwp equivalent
+    string res = "";
+
+    for (char& c : stablePath) { //Same as foreach loop in c#
+        c = std::tolower(static_cast<unsigned char>(c)); //the cast to unsigned char to remove accents 
+    }
+    res = stablePath;
+
+    //detect if it's an uwp
+    if (stablePath.find("windowsapps") != std::string::npos) { //basically 
+
+        string lowerProcessName = processName;
+        for (char& c : lowerProcessName) {
+            c = tolower(static_cast<unsigned char>(c));
+        }
+
+        res = "uwp_" + lowerProcessName;
+    }
+
+    return res;
+}
+
+//file name cleaner
+string sanitizePathForFileName(string pathOrId) { //basically to save the file
+    std::string safeName = "";
+
+    //replace illegal filename chars with safe ones
+    for (char& c : pathOrId) { //Doesn't like constant reference for whatever reason
+
+        // remove control characters (like \0, \n, \r)
+        if (c >= 0 && c < 32) {
+            continue;
+        }
+
+        if (c == '\\' || c == '/') { //Slashes are #
+            safeName += '#';
+        }
+        else if (c == ':') { //drive selector
+            safeName += '@';
+        }
+        else if (c == '*' || c == '?' || c == '"' || c == '<' || c == '>' || c == '|') { //jic
+            safeName += '_';
+        }
+        else {
+            safeName += c;
+        
+        }
+    }
+
+
+    //the max path is 260 chars if the path is deep we need to cut some info so that we can ofstream
+    if (safeName.length() > 200) {
+        //First 100 chars and the last 100 + ___
+        safeName = safeName.substr(0, 100) + "___" + safeName.substr(safeName.length() - 100);
+    }
+
+    return safeName + ".pttl";
+}
+
+
+
+
+
+
+
+
 
 
 
