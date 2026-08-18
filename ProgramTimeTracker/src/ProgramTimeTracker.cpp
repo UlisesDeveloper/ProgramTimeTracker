@@ -491,22 +491,27 @@ int main(int argc, char** argv)
             }
             ImGui::SameLine(0.0f, 1.0f);
             if (ImGui::Button("Day")) {
+                tracker.saveTime();
                 selectedStat = 1;
             }
             ImGui::SameLine(0.0f, 1.0f);
             if (ImGui::Button("Week")) {
+                tracker.saveTime();
                 selectedStat = 2;
             }
             ImGui::SameLine(0.0f, 1.0f);
             if (ImGui::Button("Month")) {
+                tracker.saveTime();
                 selectedStat = 3;
             }
             ImGui::SameLine(0.0f, 1.0f);
             if (ImGui::Button("Year")) {
+                tracker.saveTime();
                 selectedStat = 4;
             }
             ImGui::SameLine(0.0f, 1.0f);
             if (ImGui::Button("All Time")) {
+                tracker.saveTime();
                 selectedStat = 5;
             }
             ImGui::SameLine(0.0f, 1.0f);
