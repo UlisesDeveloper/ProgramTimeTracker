@@ -68,7 +68,7 @@ void AntiProcrastinationWindow(bool& show_antiprocrastination_window, bool& show
 
             }
 
-            
+            ImGui::Text("DISABLE DO NOT DISTURB MODE TO RECIEVE NOTIFICATIONS! Otherwise you risk missing notifications");
             ImGui::BeginDisabled(!temp_antiProcrastination); //if it's off everything below is disabled
 
 
