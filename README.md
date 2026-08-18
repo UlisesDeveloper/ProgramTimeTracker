@@ -1,1 +1,19 @@
 # ProgramTimeTracker
+
+![Apache-2.0 License](https://shields.io) ![Build Status](https://shields.io) ![Version 1.0.0](https://shields.io)
+
+<img width="1880" height="807" alt="Untitled" src="https://github.com/user-attachments/assets/28de0a16-882d-464b-81ea-9ad78742a0dc" />
+
+
+Program Time Tracker for Windows.  
+___
+
+- Get detailed program usage info across the week, month, year... with detailed graphs  
+<img width="831" height="285" alt="image" src="https://github.com/user-attachments/assets/b7af4d0f-090e-4af2-af85-fe81ec1d7912" />
+
+- Includes AntiProcrastination mode to allow you to focus on getting your work done, with weekend exceptions  
+<img width="1041" height="261" alt="image" src="https://github.com/user-attachments/assets/00e42465-40d5-42ae-bc00-3e381b9553d1" />
+<img width="1037" height="522" alt="image" src="https://github.com/user-attachments/assets/a912c743-82fe-4e23-a6d7-f2aa77fa6c9a" />
+
+- Runs in the taskbar and uses barely any resources  
+<img width="767" height="83" alt="image" src="https://github.com/user-attachments/assets/1e57de9a-099c-4a62-bf2d-82b8d550e5b4" />
