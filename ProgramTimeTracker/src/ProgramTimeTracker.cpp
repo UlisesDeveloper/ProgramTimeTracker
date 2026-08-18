@@ -1,5 +1,6 @@
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "d3dcompiler.lib")
+#pragma comment(linker, "/SUBSYSTEM:windows /ENTRY:mainCRTStartup") //Remove terminal
 #include "imgui.h"
 #include "imgui_impl_win32.h"
 #include "imgui_impl_dx11.h"
@@ -17,6 +18,7 @@
 #include <stdexcept>
 #include <shlobj.h>
 #include <unordered_map>
+#include "auxiliaryMainStatShower.h"
 
 
 #include "AntiProcrastinator_Window.h"
@@ -71,8 +73,8 @@ int main(int argc, char** argv)
             HWND hExisting = FindWindowW(L"ProgramTimeTrackerClass", nullptr); //Finds the other instance
             if (hExisting)
             {
-                //make it as if we pressed the traybar icon 
-                PostMessageW(hExisting, WM_APP_TRAYMSG, 0, WM_LBUTTONUP);
+                // show hidden window   
+                ShowWindow(hExisting, SW_SHOW);
                 SetForegroundWindow(hExisting);
             }
 
@@ -189,6 +191,9 @@ int main(int argc, char** argv)
         bool show_add_entry_procrastination_window = false;
         bool show_modify_entry_procrastination_window = false;
         bool show_another_window = false;
+
+        int selectedStat = 0; //Current stat selected 0 current 1 day 2 week 3 month 4 year
+
         ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
 
@@ -260,14 +265,7 @@ int main(int argc, char** argv)
             if (done)
                 break;
 
-            // Handle window being minimized or screen locked
-            if (g_SwapChainOccluded && g_pSwapChain->Present(0, DXGI_PRESENT_TEST) == DXGI_STATUS_OCCLUDED)
-            {
-                ::Sleep(10);
-                continue;
-            }
-            g_SwapChainOccluded = false;
-
+            
             // Handle window resize (we don't resize directly in the WM_SIZE handler)
             if (g_ResizeWidth != 0 && g_ResizeHeight != 0)
             {
@@ -416,6 +414,17 @@ int main(int argc, char** argv)
             }
 
 
+            
+            if (IsIconic(hwnd) || (g_SwapChainOccluded && g_pSwapChain->Present(0, DXGI_PRESENT_TEST) == DXGI_STATUS_OCCLUDED))
+            {
+                ::Sleep(10);
+                continue; // Skips rendering, dropping GPU to 0%
+            }
+            g_SwapChainOccluded = false;
+
+            
+
+
             // Start the Dear ImGui frame
             ImGui_ImplDX11_NewFrame();
             ImGui_ImplWin32_NewFrame();
@@ -435,7 +444,6 @@ int main(int argc, char** argv)
             // 3. Strip away the fake title bar, borders, and resize handles
             ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration |
                 ImGuiWindowFlags_NoMove |
-                ImGuiWindowFlags_NoSavedSettings |
                 ImGuiWindowFlags_NoBringToFrontOnFocus;
 
 
@@ -479,29 +487,38 @@ int main(int argc, char** argv)
 
             ImGui::Separator();
             if (ImGui::Button("Current")) {
+                selectedStat = 0;
             }
             ImGui::SameLine(0.0f, 1.0f);
             if (ImGui::Button("Day")) {
+                tracker.saveTime();
+                selectedStat = 1;
             }
             ImGui::SameLine(0.0f, 1.0f);
             if (ImGui::Button("Week")) {
+                tracker.saveTime();
+                selectedStat = 2;
             }
             ImGui::SameLine(0.0f, 1.0f);
             if (ImGui::Button("Month")) {
+                tracker.saveTime();
+                selectedStat = 3;
             }
             ImGui::SameLine(0.0f, 1.0f);
             if (ImGui::Button("Year")) {
+                tracker.saveTime();
+                selectedStat = 4;
             }
-
+            ImGui::SameLine(0.0f, 1.0f);
+            if (ImGui::Button("All Time")) {
+                tracker.saveTime();
+                selectedStat = 5;
+            }
+            ImGui::SameLine(0.0f, 1.0f);
+            ImGui::Text(" NOTICE: uwp/ms store apps are problematic for icon retrieval even more when they're closed");
             ImGui::Separator();
 
-            Process activeApp = tracker.getFocusedProcess();
-            ImGui::Text("Currently Focused PID: %lu", activeApp.getPid());
-            ImGui::Text("Currently Focused Name: %s", activeApp.getProcessName().c_str());
-            ImGui::Text("Currently Focused Path: %s", activeApp.getLogFileName().c_str());
-            ImGui::Text("Currently Focused Path: %s", activeApp.getPathName().c_str());
-            ImGui::Text("Active Time Today: %llu seconds", activeApp.getTodayTime());
-            ImGui::Text("Background Time Today: %llu seconds", activeApp.getBackgroundTodayTime());
+            statsShower(tracker, selectedStat, g_pd3dDevice);
 
             ImGui::Separator();
 
@@ -567,6 +584,11 @@ int main(int argc, char** argv)
                     }
 
                     ImGui::Dummy(ImVec2(0.0f, 20.0f));
+
+                    if (ImGui::Button("Codeberg Repo")) {
+                        ShellExecuteW(nullptr, L"open", L"https://codeberg.org/UlisesDev/ProgramTimeTracker", nullptr, nullptr, SW_SHOWNORMAL);
+                    }
+                    ImGui::SameLine(0.0f, 1.0f);
 
                     if (ImGui::Button("GitHub Repo")) {
                         ShellExecuteW(nullptr, L"open", L"https://github.com/UlisesDeveloper/ProgramTimeTracker", nullptr, nullptr, SW_SHOWNORMAL);

@@ -39,6 +39,9 @@
     <ClInclude Include="include\Settings_Window.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="include\auxiliaryMainStatShower.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\AllProcesses.cpp">
@@ -53,7 +56,7 @@
     <ClCompile Include="src\ProgramTimeTracker.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\trackingLogic.cpp">
+    <ClCompile Include="src\UNUSEDtrackingLogic.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="dependencies\imgui\imgui_widgets.cpp">
@@ -84,6 +87,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\Settings_Window.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\auxiliaryMainStatShower.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

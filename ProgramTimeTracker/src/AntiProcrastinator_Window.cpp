@@ -263,7 +263,7 @@ void AntiProcrastinationWindow(bool& show_antiprocrastination_window, bool& show
 
             if (pathProcessPointer != nullptr) { //in that case we don't have info at all 
                 ImGui::Text("Program's Internal Name: %s", programName.c_str());
-                ImGui::Text("Program's Alias: %s", "N/A");
+                //ImGui::Text("Program's Alias: %s", "N/A");
                 ImGui::Text("Program's PID: %lu", programPid);
 
                 if (currentIcon != nullptr) {
@@ -466,9 +466,45 @@ void AntiProcrastinationWindow(bool& show_antiprocrastination_window, bool& show
                     mod_temp_timeGlobalNotifProgram = 120;
                     mod_temp_timeWeekEndNotifProgram = 180;
                     mod_temp_timeWeekEndNotifProgramToggle = false;
-                    mod_currSelectionString = "";
-                    mod_entryExist = false;
+                    
+                    mod_currSelectionString = displayName;
 
+                    
+                    pathArrayPathInfoGetter(entries, sizeEntriesArray, displayName, mod_temp_timeGlobalNotifProgram, mod_temp_timeWeekEndNotifProgram, mod_temp_timeWeekEndNotifProgramToggle);
+
+                    
+                    mod_entryExist = entryExistsArray(entries, sizeEntriesArray, displayName);
+
+                    //extract program name
+                    size_t lastSlash = displayName.find_last_of("\\/");
+                    if (lastSlash != string::npos) {
+                        mod_programName = displayName.substr(lastSlash + 1);
+                    }
+                    else {
+                        mod_programName = displayName;
+                    }
+
+                    //remove last icon
+                    if (mod_currentIcon != nullptr) {
+                        (*mod_currentIcon).Release();
+                        mod_currentIcon = nullptr;
+                    }
+
+                    //if it's running 
+                    if (tracker.getProcessFromPath(displayName.c_str(), mod_pathProcessPointer)) {
+                        mod_programPid = (*mod_pathProcessPointer).getPid();
+                        // If it's a live UWP app, this gets the real live icon!
+                        mod_currentIcon = (ID3D11ShaderResourceView*)showIconFromProcess(*mod_pathProcessPointer, d3dDevice);
+                    }
+                    else { //app ain't open 
+                        mod_programPid = 0;
+                        mod_pathProcessPointer = nullptr;
+                        
+                        mod_currentIcon = showIconFromPath(displayName, d3dDevice);
+                    }
+
+
+                    /*
                     if (tracker.getProcessFromPath(displayName.c_str(), mod_pathProcessPointer)) {
                         mod_programName = (*mod_pathProcessPointer).getProcessName();
                         mod_programPid = (*mod_pathProcessPointer).getPid();
@@ -487,7 +523,7 @@ void AntiProcrastinationWindow(bool& show_antiprocrastination_window, bool& show
                     }
 
                     mod_entryExist = entryExists(displayName);
-
+                    */
 
 
 
@@ -502,10 +538,16 @@ void AntiProcrastinationWindow(bool& show_antiprocrastination_window, bool& show
 
 
 
-            if (mod_pathProcessPointer != nullptr) { //in that case we don't have info at all 
+            if (!mod_currSelectionString.empty()) { //in that case we don't have info at all 
                 ImGui::Text("Program's Internal Name: %s", mod_programName.c_str());
-                ImGui::Text("Program's Alias: %s", "N/A");
-                ImGui::Text("Program's PID: %lu", mod_programPid);
+                //ImGui::Text("Program's Alias: %s", "N/A");
+
+                if (mod_programPid > 0) {
+                    ImGui::Text("Program's PID: %lu", mod_programPid);
+                }
+                else {
+                    ImGui::Text("Program's PID: N/A CLOSED");
+                }
 
                 if (mod_currentIcon != nullptr) {
                     ImGui::Image((void*)mod_currentIcon, ImVec2(32.0f, 32.0f));
@@ -604,7 +646,7 @@ void AntiProcrastinationWindow(bool& show_antiprocrastination_window, bool& show
 
 
             }
-            else {
+            else if (mod_selected_index != -1) {
                 ImGui::Text("Can't retrieve info");
             }
 

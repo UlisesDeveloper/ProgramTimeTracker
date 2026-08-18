@@ -22,6 +22,7 @@
     <ClInclude Include="include\AllProcesses.h" />
     <ClInclude Include="include\AntiProcrastinator_Window.h" />
     <ClInclude Include="include\auxiliaryMainFunctions.h" />
+    <ClInclude Include="include\auxiliaryMainStatShower.h" />
     <ClInclude Include="include\globals.h" />
     <ClInclude Include="include\Process.h" />
     <ClInclude Include="include\resource.h" />
@@ -39,11 +40,12 @@
     <ClCompile Include="src\AllProcesses.cpp" />
     <ClCompile Include="src\AntiProcrastinator_Window.cpp" />
     <ClCompile Include="src\auxiliaryMainFunctions.cpp" />
+    <ClCompile Include="src\auxiliaryMainStatShower.cpp" />
     <ClCompile Include="src\globals.cpp" />
     <ClCompile Include="src\Process.cpp" />
     <ClCompile Include="src\ProgramTimeTracker.cpp" />
     <ClCompile Include="src\Settings_Window.cpp" />
-    <ClCompile Include="src\trackingLogic.cpp" />
+    <ClCompile Include="src\UNUSEDtrackingLogic.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Resource.rc" />
