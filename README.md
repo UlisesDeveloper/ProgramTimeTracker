@@ -16,7 +16,7 @@ ___
 
 ## Download
 
-Download Program Time Tracker from the [Project Page](https://ulis.es/ProgramTimeTracker/) or [Github Releases Page](https://ulis.es/ProgramTimeTracker/)
+Download Program Time Tracker from the [Project Page](https://ulis.es/ProgramTimeTracker/) or [Github Releases Page](https://github.com/UlisesDeveloper/ProgramTimeTracker/releases)
   
 Don't forget to set the program as a statup program through the Settings Menu so that tracking is done automatically at startup
 
