@@ -263,7 +263,7 @@ void AntiProcrastinationWindow(bool& show_antiprocrastination_window, bool& show
 
             if (pathProcessPointer != nullptr) { //in that case we don't have info at all 
                 ImGui::Text("Program's Internal Name: %s", programName.c_str());
-                ImGui::Text("Program's Alias: %s", "N/A");
+                //ImGui::Text("Program's Alias: %s", "N/A");
                 ImGui::Text("Program's PID: %lu", programPid);
 
                 if (currentIcon != nullptr) {
@@ -540,7 +540,7 @@ void AntiProcrastinationWindow(bool& show_antiprocrastination_window, bool& show
 
             if (!mod_currSelectionString.empty()) { //in that case we don't have info at all 
                 ImGui::Text("Program's Internal Name: %s", mod_programName.c_str());
-                ImGui::Text("Program's Alias: %s", "N/A");
+                //ImGui::Text("Program's Alias: %s", "N/A");
 
                 if (mod_programPid > 0) {
                     ImGui::Text("Program's PID: %lu", mod_programPid);

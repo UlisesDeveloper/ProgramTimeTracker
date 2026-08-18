@@ -82,15 +82,29 @@ void statsShower(AllProcesses& tracker, int selectedStat, ID3D11Device* d3dDevic
             // 4 if it's day rest 5
             int numColumns = (selectedStat == 1) ? 4 : 5;
 
-            if (ImGui::BeginTable("StatsTable", numColumns, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable)) {
+            string tableID = "StatsTable_" + to_string(selectedStat);
+
+            if (ImGui::BeginTable(tableID.c_str(), numColumns, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable)) {
 
                 ImGui::TableSetupColumn("Program Name");
-                ImGui::TableSetupColumn("Active Time (Hours:Mins:Secs)");
-                ImGui::TableSetupColumn("Background Time (Hours:Mins:Secs)");
+                if (selectedStat < 2) {
+                    ImGui::TableSetupColumn("Active Time (Hours:Mins:Secs)");
+                    ImGui::TableSetupColumn("Background Time (Hours:Mins:Secs)");
+                }
+                else {
+                    ImGui::TableSetupColumn("Active Time (Days:Hours:Mins:Secs)");
+                    ImGui::TableSetupColumn("Background Time (Days:Hours:Mins:Secs)");
+                }
 
                 //only have the tab is selectedstat isn't 1
-                if (selectedStat > 1) {
+                if (selectedStat == 2) {
                     ImGui::TableSetupColumn("Most Popular Day");
+                } else if (selectedStat == 3) {
+                    ImGui::TableSetupColumn("Most Popular Week");
+                } else if (selectedStat == 4) {
+                    ImGui::TableSetupColumn("Most Popular Month");
+                } else if (selectedStat == 5) {
+                    ImGui::TableSetupColumn("Most Popular Year");
                 }
 
                 ImGui::TableSetupColumn("Original Path");
@@ -115,7 +129,82 @@ void statsShower(AllProcesses& tracker, int selectedStat, ID3D11Device* d3dDevic
                         if (ImGui::BeginPopup(("GraphPopup_" + to_string(i)).c_str())) {
                             ImGui::Text("Detailed Statistics: %s", (*cachedData).queryProcesses[i].getProcessName().c_str());
                             ImGui::Separator();
-                            ImGui::Text("Graph functionality coming soon!"); // We will add the PlotHistogram here tomorrow!
+                            
+                            if (i < cachedData->retroActive_ActiveSecs.size()) {
+
+                                //highest time first
+                                int maxSecs = 0;
+                                for (int secs : cachedData->retroActive_ActiveSecs[i]) {
+                                    if (secs > maxSecs) maxSecs = secs;
+                                }
+                                if (maxSecs == 0) maxSecs = 1; //no /0
+
+                                // table for the graph
+                                if (ImGui::BeginTable("GraphTable", 2, ImGuiTableFlags_BordersInnerV)) {
+                                    ImGui::TableSetupColumn("Period", ImGuiTableColumnFlags_WidthFixed, 54.0f);
+                                    ImGui::TableSetupColumn("Usage", ImGuiTableColumnFlags_WidthStretch);
+
+                                    for (int k = 0; k < cachedData->retroActive_ActiveSecs[i].size(); k++) {
+                                        ImGui::TableNextRow();
+
+                                        //labels like monday, or january or 2026
+                                        ImGui::TableSetColumnIndex(0);
+                                        string rowLabel = "";
+                                        if (selectedStat == 2) {
+                                            const char* days[] = { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" };
+                                            rowLabel = days[k];
+                                        }
+                                        else if (selectedStat == 3) {
+                                            rowLabel = "Week " + to_string(k + 1);
+                                        }
+                                        else if (selectedStat == 4) {
+                                            const char* months[] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
+                                            rowLabel = months[k];
+                                        }
+                                        else if (selectedStat == 5) {
+                                            rowLabel = to_string(2026 + k);
+                                        }
+                                        ImGui::Text("%s", rowLabel.c_str());
+
+                                        
+                                        ImGui::TableSetColumnIndex(1);
+
+                                        int secs = cachedData->retroActive_ActiveSecs[i][k];
+
+                                        //format
+                                        int d = secs / 86400;
+                                        int h = (secs % 86400) / 3600;
+                                        int m = (secs % 3600) / 60;
+                                        int s = secs % 60;
+
+                                        char timeStr[64];
+                                        if (selectedStat > 2) {
+
+                                            sprintf_s(timeStr, sizeof(timeStr), "%d days %d:%02d:%02d", d, h, m, s);
+                                        }
+                                        else { // week day shower days will always be 0 
+                                            sprintf_s(timeStr, sizeof(timeStr), "%d:%02d:%02d", h, m, s);
+
+                                        }
+                                        float fraction = (float)secs / (float)maxSecs;
+
+                                        //Show color
+                                        ImGui::PushStyleColor(ImGuiCol_PlotHistogram, ImGui::GetStyleColorVec4(ImGuiCol_HeaderActive));
+
+                                        //put the text in the bar
+                                        ImGui::ProgressBar(fraction, ImVec2(-FLT_MIN, 24.0f), timeStr);
+
+                                        ImGui::PopStyleColor();
+                                    }
+                                    ImGui::EndTable();
+                                }
+                            }
+                            else {
+                                ImGui::Text("No graph data available.");
+                            }
+
+
+
                             ImGui::EndPopup();
                         }
                     }
@@ -138,19 +227,59 @@ void statsShower(AllProcesses& tracker, int selectedStat, ID3D11Device* d3dDevic
                     ImGui::TableSetColumnIndex(1);
                     int aSecs = (*cachedData).queryActiveSecs[i];
                     totalSecs += aSecs; // Add to total
-                    ImGui::Text("%d:%02d:%02d", aSecs / 3600, (aSecs % 3600) / 60, aSecs % 60);
-
+                    if (selectedStat < 2) {
+                        ImGui::Text("%02d:%02d:%02d", aSecs / 3600, (aSecs % 3600) / 60, aSecs % 60);
+                    }
+                    else{
+                        ImGui::Text("%02d:%02d:%02d:%02d", aSecs /86400, aSecs / 3600, (aSecs % 3600) / 60, aSecs % 60);
+                    }
                     
                     ImGui::TableSetColumnIndex(2);
                     int bSecs = (*cachedData).queryBackgroundSecs[i];
-                    ImGui::Text("%d:%02d:%02d", bSecs / 3600, (bSecs % 3600) / 60, bSecs % 60);
+                    if (selectedStat < 2) {
+                        ImGui::Text("%02d:%02d:%02d", bSecs / 3600, (bSecs % 3600) / 60, bSecs % 60);
+                    }else {
+                        ImGui::Text("%02d:%02d:%02d:%02d", bSecs / 86400, bSecs / 3600, (bSecs % 3600) / 60, bSecs % 60);
+                    }
 
                     //most popular retroactive
                     int nextCol = 3;
                     if (selectedStat > 1) {
                         ImGui::TableSetColumnIndex(nextCol);
-                        ImGui::Text("Data Pending...");
-                        nextCol++; 
+                        string mostPopularText = "N/A";
+
+                        //find the holder with highest time 
+                        if (i < cachedData->retroActive_ActiveSecs.size()) {
+                            int maxVal = -1;
+                            int maxIndex = -1;
+                            for (int k = 0; k < cachedData->retroActive_ActiveSecs[i].size(); k++) {
+                                if (cachedData->retroActive_ActiveSecs[i][k] > maxVal) {
+                                    maxVal = cachedData->retroActive_ActiveSecs[i][k];
+                                    maxIndex = k;
+                                }
+                            }
+
+                            //translate index to date
+                            if (maxVal > 0) {
+                                if (selectedStat == 2) {
+                                    const char* days[] = { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" };
+                                    mostPopularText = days[maxIndex];
+                                }
+                                else if (selectedStat == 3) {
+                                    mostPopularText = "Week " + to_string(maxIndex + 1);
+                                }
+                                else if (selectedStat == 4) {
+                                    const char* months[] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
+                                    mostPopularText = months[maxIndex];
+                                }
+                                else if (selectedStat == 5) {
+                                    mostPopularText = to_string(2026 + maxIndex); //just the year because the index is since 2026
+                                }
+                            }
+                        }
+
+                        ImGui::Text("%s", mostPopularText.c_str());
+                        nextCol++;
                     }
 
                     
@@ -161,8 +290,14 @@ void statsShower(AllProcesses& tracker, int selectedStat, ID3D11Device* d3dDevic
 
                 ImGui::Dummy(ImVec2(0.0f, 10.0f));
 
+                if (selectedStat < 2) {
+                    ImGui::Text("Total Active time (H:M:S): %02d:%02d:%02d", totalSecs / 3600, (totalSecs % 3600) / 60, totalSecs % 60);
+                }
+                else {
+                    ImGui::Text("Total Active time (D:H:M:S): %02d:%02d:%02d:%02d", totalSecs / 86400,totalSecs / 3600, (totalSecs % 3600) / 60, totalSecs % 60);
 
-                ImGui::Text("Total Active time: %d:%02d:%02d", totalSecs / 3600, (totalSecs % 3600) / 60, totalSecs % 60);
+                }
+
 
                 if (ImGui::Button("Reload data")) {
                     tracker.saveTime(); //[cite: 5]
@@ -326,6 +461,44 @@ statData* retrieveStatsFromFile(const string& filePath, int selectedStat) {
                 
                 if (activeSecs == 0 && backgroundSecs == 0) continue; //to avoid 0:0:0 entries
                 
+
+                //Retroactive variables declaration
+                int retroIndex = 0;
+                int retroSize = 1;
+
+                if (selectedStat == 2) { //get 7 days
+                    retroSize = 7;
+                    tm time_in = { 0, 0, 12, fDay, fMonth - 1, fYear - 1900 };
+                    time_t time_temp = mktime(&time_in);
+                    tm time_out;
+                     localtime_s(&time_out,&time_temp);
+                    // 0 monday - 6 sat 
+                    retroIndex = (time_out.tm_wday == 0) ? 6 : time_out.tm_wday - 1;
+                }
+                else if (selectedStat == 3) { //4 weeks
+                    retroSize = 4;
+                    retroIndex = (fDay - 1) / 7;
+                    if (retroIndex > 3) retroIndex = 3; // cap days 29, 30, 31 into the 4th week
+                }
+                else if (selectedStat == 4) { // 12 months
+                    retroSize = 12;
+                    retroIndex = fMonth - 1; // Jan = 0, Dec = 11
+                }
+                else if (selectedStat == 5) { //years since 2026
+                    retroSize = (currYear() - 2026) + 1; // 2026 being 1
+                    if (retroSize < 1) retroSize = 1;
+                    retroIndex = fYear - 2026;
+                    if (retroIndex < 0) retroIndex = 0;
+                    if (retroIndex >= retroSize) retroIndex = retroSize - 1;
+                }
+
+
+
+                //end retroactivity variables declaration
+
+
+
+
                 if (hasProcessBeenAddedTostatData) { //if it has been added it will always be in size - 1
                     
 
@@ -333,6 +506,11 @@ statData* retrieveStatsFromFile(const string& filePath, int selectedStat) {
                     (*res).queryActiveSecs[(*res).size - 1] = (*res).queryActiveSecs[(*res).size - 1] + activeSecs;
                     (*res).queryBackgroundSecs[(*res).size - 1] = (*res).queryBackgroundSecs[(*res).size - 1] + backgroundSecs;
 
+                    // add retroactivity
+                    if (selectedStat > 1 && retroIndex >= 0 && retroIndex < retroSize) {
+                        (*res).retroActive_ActiveSecs[(*res).size - 1][retroIndex] += activeSecs;
+                        (*res).retroActive_BackgroundSecs[(*res).size - 1][retroIndex] += backgroundSecs;
+                    }
                 }
                 else {
                     DWORD pid = 0;
@@ -379,6 +557,25 @@ statData* retrieveStatsFromFile(const string& filePath, int selectedStat) {
                     tempAdd.queryProcesses = new Process[1]{ loadedProcess };
                     tempAdd.queryActiveSecs = new int[1] {activeSecs};
                     tempAdd.queryBackgroundSecs = new int[1] {backgroundSecs};
+
+                    //Create retroactive vector
+                    if (selectedStat > 1) {
+                        //row of 0s for active time
+                        vector<int> blankRow(retroSize, 0);
+                        if (retroIndex >= 0 && retroIndex < retroSize) {
+                            blankRow[retroIndex] = activeSecs; 
+                        }
+                        tempAdd.retroActive_ActiveSecs.push_back(blankRow);
+
+                        //Same for bgound
+                        std::vector<int> blankBgRow(retroSize, 0);
+                        if (retroIndex >= 0 && retroIndex < retroSize) {
+                            blankBgRow[retroIndex] = backgroundSecs; 
+                        }
+                        tempAdd.retroActive_BackgroundSecs.push_back(blankBgRow);
+                    }
+
+
 
                     (*res) += tempAdd;
                     hasProcessBeenAddedTostatData = true;

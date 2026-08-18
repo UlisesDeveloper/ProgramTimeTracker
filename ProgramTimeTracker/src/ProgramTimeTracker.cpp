@@ -1,5 +1,6 @@
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "d3dcompiler.lib")
+#pragma comment(linker, "/SUBSYSTEM:windows /ENTRY:mainCRTStartup") //Remove terminal
 #include "imgui.h"
 #include "imgui_impl_win32.h"
 #include "imgui_impl_dx11.h"
@@ -72,8 +73,8 @@ int main(int argc, char** argv)
             HWND hExisting = FindWindowW(L"ProgramTimeTrackerClass", nullptr); //Finds the other instance
             if (hExisting)
             {
-                //make it as if we pressed the traybar icon 
-                PostMessageW(hExisting, WM_APP_TRAYMSG, 0, WM_LBUTTONUP);
+                // show hidden window   
+                ShowWindow(hExisting, SW_SHOW);
                 SetForegroundWindow(hExisting);
             }
 
@@ -264,14 +265,7 @@ int main(int argc, char** argv)
             if (done)
                 break;
 
-            // Handle window being minimized or screen locked
-            if (g_SwapChainOccluded && g_pSwapChain->Present(0, DXGI_PRESENT_TEST) == DXGI_STATUS_OCCLUDED)
-            {
-                ::Sleep(10);
-                continue;
-            }
-            g_SwapChainOccluded = false;
-
+            
             // Handle window resize (we don't resize directly in the WM_SIZE handler)
             if (g_ResizeWidth != 0 && g_ResizeHeight != 0)
             {
@@ -420,6 +414,17 @@ int main(int argc, char** argv)
             }
 
 
+            
+            if (IsIconic(hwnd) || (g_SwapChainOccluded && g_pSwapChain->Present(0, DXGI_PRESENT_TEST) == DXGI_STATUS_OCCLUDED))
+            {
+                ::Sleep(10);
+                continue; // Skips rendering, dropping GPU to 0%
+            }
+            g_SwapChainOccluded = false;
+
+            
+
+
             // Start the Dear ImGui frame
             ImGui_ImplDX11_NewFrame();
             ImGui_ImplWin32_NewFrame();
@@ -439,7 +444,6 @@ int main(int argc, char** argv)
             // 3. Strip away the fake title bar, borders, and resize handles
             ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration |
                 ImGuiWindowFlags_NoMove |
-                ImGuiWindowFlags_NoSavedSettings |
                 ImGuiWindowFlags_NoBringToFrontOnFocus;
 
 

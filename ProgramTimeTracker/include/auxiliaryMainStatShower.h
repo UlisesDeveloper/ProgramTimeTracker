@@ -6,6 +6,7 @@
 #include "imgui.h"
 #include <filesystem>
 #include "auxiliaryMainFunctions.h"
+#include <vector>
 
 using namespace std;
 
@@ -19,10 +20,8 @@ struct statData {
 
     //retroactive viewing for graphs so if it's week then day, month then week and so on, necesary to get info for graphs
     bool retroActive = false; //if it's true, then it's not a day and theres retroactive information
-    int retroActive_size;
-    Process* retroActive_queryProcesses = nullptr; //pointer to pointer because if it's a week then we need to get all the days so pointer to day and then to all the days in week, or if it's month pointer to week and then to all the weeks
-    int* retroActive_queryActiveSecs = nullptr;
-    int* retroActive_queryBackgroundSecs = nullptr;
+    vector<std::vector<int>> retroActive_ActiveSecs; 
+    vector<std::vector<int>> retroActive_BackgroundSecs;
 
 
     //Functions
@@ -30,9 +29,7 @@ struct statData {
         delete[] queryProcesses;
         delete[] queryActiveSecs;
         delete[] queryBackgroundSecs;
-        delete[] retroActive_queryProcesses;
-        delete[] retroActive_queryActiveSecs;
-        delete[] retroActive_queryBackgroundSecs;
+        
     }
 
     statData& operator+=(const statData& other) { //Add to ours
@@ -64,7 +61,9 @@ struct statData {
             queryBackgroundSecs = TEMPqueryBackgroundSecs;
 
             //know that i have to do something about the retroactive but not yet i have no idea still
-
+            //for vectors insert is like = operator, so we insert at the end of retroactive_Activesecs the entire other, same for bgound
+            retroActive_ActiveSecs.insert(retroActive_ActiveSecs.end(), other.retroActive_ActiveSecs.begin(), other.retroActive_ActiveSecs.end());
+            retroActive_BackgroundSecs.insert(retroActive_BackgroundSecs.end(), other.retroActive_BackgroundSecs.begin(), other.retroActive_BackgroundSecs.end());
         }
         return *this;
     }
@@ -85,6 +84,13 @@ struct statData {
                     queryActiveSecs[j] = TEMPqueryActiveSecs;
                     queryBackgroundSecs[j] = TEMPqueryBackgroundSecs;
                     queryProcesses[j] = TEMPqueryProcesses;
+
+
+                    if (retroActive_ActiveSecs.size() > 0) {
+                        swap(retroActive_ActiveSecs[i], retroActive_ActiveSecs[j]);
+                        swap(retroActive_BackgroundSecs[i], retroActive_BackgroundSecs[j]);
+                    }
+
                 }
                 else if (queryActiveSecs[i] == queryActiveSecs[j] ) {
                     if (queryBackgroundSecs[i] < queryActiveSecs[j]) {
@@ -100,6 +106,12 @@ struct statData {
                         queryActiveSecs[j] = TEMPqueryActiveSecs;
                         queryBackgroundSecs[j] = TEMPqueryBackgroundSecs;
                         queryProcesses[j] = TEMPqueryProcesses;
+
+                        if (retroActive_ActiveSecs.size() > 0) {
+                            swap(retroActive_ActiveSecs[i], retroActive_ActiveSecs[j]);
+                            swap(retroActive_BackgroundSecs[i], retroActive_BackgroundSecs[j]);
+                        }
+
                     }
                 }
             }

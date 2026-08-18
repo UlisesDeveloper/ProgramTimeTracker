@@ -16,10 +16,13 @@ void SettingsWindow(bool& show_settings_window, bool& show_alias_window, AllProc
         ImGui::SetNextWindowSize(ImVec2(400.0f, 300.0f), ImGuiCond_FirstUseEver);
         if (ImGui::Begin("Settings", &show_settings_window))
         {
-
+            /*
             if (ImGui::Button("Set Aliases")) {
                 show_alias_window = true;
             }
+
+            */
+            //nothing added yet
 
             ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.6f, 0.1f, 0.1f, 1.0f));
             ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.8f, 0.2f, 0.2f, 1.0f));
@@ -68,6 +71,7 @@ void SettingsWindow(bool& show_settings_window, bool& show_alias_window, AllProc
             ImGui::Separator();
             ImGui::Text("Program Settings, Apply to save them!");
             ImGui::Text("- TIMEOUT SETTINGS:");
+            ImGui::Text("Timeout is the time of inactivity after which the program stops tracking active time for the focused program");
             if (!init_settings) { //we do this to load the globals if anything important has changed
                 temp_timeBefore = timeBeforeTimeOut;
                 temp_secsBeforeVideo = secsBeforeVideoTimeOut;
@@ -104,7 +108,10 @@ void SettingsWindow(bool& show_settings_window, bool& show_alias_window, AllProc
                 init_settings = true;
             }
             ImGui::InputInt("Global Timeout (secs)", &temp_timeBefore);
-            ImGui::Checkbox("Enable Video Mode", &temp_videoMode);
+            ImGui::Checkbox("Enable Video Mode (DEFECTIVE)", &temp_videoMode);
+            ImGui::Text("Video Mode allows you to give a higher timeout limit for inactivity for a multimedia provider");
+            ImGui::Text("It's defective because it tries to get the handle of a process so for firefox if a tab has youtube in the name");
+            ImGui::Text("but other tabs could get affected");
 
             ImGui::BeginDisabled(!temp_videoMode); //disabled if it's off
 

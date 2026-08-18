@@ -12,7 +12,7 @@ disney+
 apple tv
 twitch
 mpv
-1
+0
 0
 0
 1

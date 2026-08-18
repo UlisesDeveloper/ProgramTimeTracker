@@ -45,7 +45,7 @@
     <ClCompile Include="src\Process.cpp" />
     <ClCompile Include="src\ProgramTimeTracker.cpp" />
     <ClCompile Include="src\Settings_Window.cpp" />
-    <ClCompile Include="src\trackingLogic.cpp" />
+    <ClCompile Include="src\UNUSEDtrackingLogic.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Resource.rc" />

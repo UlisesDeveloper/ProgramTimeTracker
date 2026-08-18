@@ -56,7 +56,7 @@
     <ClCompile Include="src\ProgramTimeTracker.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\trackingLogic.cpp">
+    <ClCompile Include="src\UNUSEDtrackingLogic.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="dependencies\imgui\imgui_widgets.cpp">
