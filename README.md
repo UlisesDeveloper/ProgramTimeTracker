@@ -1,11 +1,12 @@
 # ProgramTimeTracker
 
-![Apache-2.0 License](https://shields.io) ![Build Status](https://shields.io) ![Version 1.0.0](https://shields.io)
-
+<div align="center">
+  **Program Time Tracker for Windows.**
+</div> 
 <img width="1880" height="807" alt="Untitled" src="https://github.com/user-attachments/assets/28de0a16-882d-464b-81ea-9ad78742a0dc" />
 
 
-Program Time Tracker for Windows.  
+
 ___
 
 - Get detailed program usage info across the week, month, year... with detailed graphs  
@@ -16,4 +17,5 @@ ___
 <img width="1037" height="522" alt="image" src="https://github.com/user-attachments/assets/a912c743-82fe-4e23-a6d7-f2aa77fa6c9a" />
 
 - Runs in the taskbar and uses barely any resources  
-<img width="767" height="83" alt="image" src="https://github.com/user-attachments/assets/1e57de9a-099c-4a62-bf2d-82b8d550e5b4" />
+<img width="772" height="198" alt="image" src="https://github.com/user-attachments/assets/f81ea4d4-62c0-45f5-b257-dbb2dbf582a4" />
+
