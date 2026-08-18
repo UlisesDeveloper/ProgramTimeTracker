@@ -107,6 +107,11 @@ int currYear();
 
 bool isWeekEnd();
 
+
+bool isDateInThisWeek(int day, int month, int year);
+bool isDateInThisMonth(int day, int month, int year);
+bool isDateInThisYear(int day, int month, int year);
+
 void appendCurrentDateToFile(string fileName, const Process& a);
 
 

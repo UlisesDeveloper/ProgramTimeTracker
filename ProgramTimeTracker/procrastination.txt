@@ -1,2 +1,1 @@
-1
-uwp_firefox.exe|120|0|180
+0

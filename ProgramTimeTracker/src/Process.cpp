@@ -340,6 +340,54 @@ bool isWeekEnd() {
 }
 
 
+
+bool isDateInThisWeek(int day, int month, int year) {
+	time_t now = time(nullptr);
+	tm localNow;
+	localtime_s(&localNow,&now);
+
+	int daysSinceMonday = (localNow.tm_wday == 0) ? 6 : localNow.tm_wday - 1;
+	//Forgot about the ? : it behaves like an if so condition ? if true : if false
+
+	//Calc start of the week
+	tm startOfWeek = localNow;
+	startOfWeek.tm_mday -= daysSinceMonday;
+	startOfWeek.tm_hour = 0;
+	startOfWeek.tm_min = 0;
+	startOfWeek.tm_sec = 0;
+
+
+	//normalize date so if it's negative it changes the month
+	time_t start_t = mktime(&startOfWeek);
+
+	//Calc start of next week
+	tm endOfWeek = startOfWeek;
+	endOfWeek.tm_mday += 7; 
+	time_t end_t = mktime(&endOfWeek);
+
+
+	tm targetDate = {};
+	targetDate.tm_year = year - 1900; //they start at 1900
+	targetDate.tm_mon = month - 1;    // 0-11
+	targetDate.tm_mday = day;
+
+	
+	targetDate.tm_hour = 12;
+	targetDate.tm_min = 0;
+	targetDate.tm_sec = 0;
+	time_t target_t = mktime(&targetDate);
+
+	return (target_t >= start_t && target_t < end_t);
+}
+
+bool isDateInThisMonth(int day, int month, int year) {
+	return year == currYear() && month == currMonth();
+}
+
+bool isDateInThisYear(int day, int month, int year) {
+	return year == currYear();
+}
+
 void appendCurrentDateToFile(string fileName, const Process& a) {
 	ofstream file(fileName, std::ios::app); //append mode 
 	if (!(file.is_open())) {
