@@ -1,13 +1,29 @@
 # ProgramTimeTracker
 
 <div align="center">
-  **Program Time Tracker for Windows.**
-</div> 
+
+**Program Time Tracker for Windows.**
+
+[Project Page](https://ulis.es/ProgramTimeTracker/)
+
+</div>
 <img width="1880" height="807" alt="Untitled" src="https://github.com/user-attachments/assets/28de0a16-882d-464b-81ea-9ad78742a0dc" />
 
 
 
 ___
+
+
+## Download
+
+Download Program Time Tracker from the [Project Page](https://ulis.es/ProgramTimeTracker/) or [Github Releases Page](https://ulis.es/ProgramTimeTracker/)
+  
+Don't forget to set the program as a statup program through the Settings Menu so that tracking is done automatically at startup
+
+
+
+___
+
 
 - Get detailed program usage info across the week, month, year... with detailed graphs  
 <img width="831" height="285" alt="image" src="https://github.com/user-attachments/assets/b7af4d0f-090e-4af2-af85-fe81ec1d7912" />
