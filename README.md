@@ -18,7 +18,7 @@ ___
 
 Download Program Time Tracker from the [Project Page](https://ulis.es/ProgramTimeTracker/) or [Github Releases Page](https://github.com/UlisesDeveloper/ProgramTimeTracker/releases)
   
-Don't forget to set the program as a statup program through the Settings Menu so that tracking is done automatically at startup  
+Don't forget to set the program as a statup program through the Settings Menu so that tracking is done automatically at startup, and if possible have the project folder stored in a directory that isn't the Downloads folder
 
 I am aware of the false positives on VirusTotal & Microsoft Defender. There's nothing I can do at the moment as the program needs to write to the registry to register as a startup application and it gets a lot of info from processes, consults icons & terminates processes (antiprocrastinator) which doesn't help for the judgement of the security vendors
 
