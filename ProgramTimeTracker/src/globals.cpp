@@ -70,7 +70,7 @@ void RunAtStartup(bool enable)
 
 
             //Gets added
-            RegSetValueExW(hKey, REGISTRY_APP_NAME, 0, REG_SZ, (BYTE*)exePath, (wcslen(exePath) + 1) * sizeof(wchar_t));
+            RegSetValueExW(hKey, REGISTRY_APP_NAME, 0, REG_SZ, (BYTE*)commandPath, (wcslen(commandPath) + 1) * sizeof(wchar_t));
         }
         else
         {

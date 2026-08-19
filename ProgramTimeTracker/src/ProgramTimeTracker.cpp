@@ -37,7 +37,7 @@ static NOTIFYICONDATAW s_NID = {};
 using namespace std;
 
 
-AllProcesses tracker;
+AllProcesses* g_tracker;
 
 
 // Data
@@ -63,6 +63,22 @@ void exceedLimitNotification(const Process& a, bool killed = false);
 int main(int argc, char** argv)
 {
     try {
+
+        //test
+        //MessageBoxA(nullptr, "The program successfully started!", "Debug Ping", MB_OK);
+
+
+        wchar_t absolutePath[MAX_PATH];
+        GetModuleFileNameW(nullptr, absolutePath, MAX_PATH);
+
+        //get folderpath
+        filesystem::path exeFolder(absolutePath);
+
+        // set it as working directoryr
+        std::filesystem::current_path(exeFolder.parent_path());
+
+
+
         //Assign usermodelid cause window hates portable exe sending notifications
         SetCurrentProcessExplicitAppUserModelID(L"UlisesDev.ProgramTimeTracker");
 
@@ -110,6 +126,7 @@ int main(int argc, char** argv)
         {
             CleanupDeviceD3D();
             ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
+            MessageBoxA(nullptr, "DirectX 11 Failed to Initialize!", "Fatal Error", MB_OK);
             return 1;
         }
 
@@ -213,7 +230,8 @@ int main(int argc, char** argv)
                 throw invalid_argument("Warning: Could not create logs directory, close the program and create it yourself");
             }
         }
-
+        g_tracker = new AllProcesses();
+        AllProcesses& tracker = *g_tracker; 
 
 
 
@@ -720,7 +738,7 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     case WM_CLOSE:
         //HIDES WINDOW INSTEAD OF FULL ON CLOSING IT TO BE ABLE TO MINIMIZE IT
         ::ShowWindow(hWnd, SW_HIDE);
-        tracker.saveTime();
+        if (g_tracker) g_tracker->saveTime();
         return 0;
     case WM_APP_TRAYMSG:
     {
@@ -750,7 +768,7 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             else if (clicked == ID_TRAY_EXIT)
             {
                 // exit program 
-                tracker.saveTime();
+                if (g_tracker) g_tracker->saveTime();
                 Shell_NotifyIconW(NIM_DELETE, &s_NID);
                 ::PostQuitMessage(0);
             }
